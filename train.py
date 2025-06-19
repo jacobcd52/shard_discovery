@@ -13,6 +13,7 @@ import os
 from config import Config
 from model import MLP
 from utils import plot_training_curves, visualize_mnist_samples, visualize_predictions, create_results_dir
+from gradient_collector import PerSampleGradientCollector, compute_gradient_statistics
 
 def set_random_seed(seed):
     """Set random seed for reproducibility"""
@@ -51,9 +52,9 @@ def get_data_loaders(config):
         num_workers=config.num_workers
     )
     
-    return train_loader, test_loader
+    return train_loader, test_loader, train_dataset, test_dataset
 
-def train_epoch(model, train_loader, criterion, optimizer, device):
+def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None):
     """Train for one epoch"""
     model.train()
     running_loss = 0.0
@@ -63,6 +64,16 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         
+        # Collect per-sample gradients if enabled
+        if gradient_collector is not None and config is not None and config.collect_gradients:
+            gradient_collector.collect_gradients_for_batch(data, target, criterion)
+            
+            # Save gradients every batch if configured (memory intensive)
+            if config.save_gradients_every_batch:
+                gradient_collector.save_gradients(epoch=0, batch_idx=batch_idx)
+                gradient_collector.clear_gradients()
+        
+        # Normal training step
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
@@ -117,9 +128,9 @@ def main():
     
     # Get data loaders
     print("Loading MNIST dataset...")
-    train_loader, test_loader = get_data_loaders(config)
-    print(f"Training samples: {len(train_loader.dataset)}")
-    print(f"Test samples: {len(test_loader.dataset)}")
+    train_loader, test_loader, train_dataset, test_dataset = get_data_loaders(config)
+    print(f"Training samples: {len(train_dataset) if hasattr(train_dataset, '__len__') else 'Unknown'}")
+    print(f"Test samples: {len(test_dataset) if hasattr(test_dataset, '__len__') else 'Unknown'}")
     
     # Visualize some training samples
     print("Visualizing training samples...")
@@ -140,6 +151,13 @@ def main():
     
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+    
+    # Initialize gradient collector if enabled
+    gradient_collector = None
+    if config.collect_gradients:
+        print("Initializing gradient collector...")
+        gradient_collector = PerSampleGradientCollector(model, config.gradients_dir)
+        print(f"Gradient collection enabled. Gradients will be saved to {config.gradients_dir}")
     
     # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -165,7 +183,22 @@ def main():
         print("-" * 20)
         
         # Train
-        train_loss, train_accuracy = train_epoch(model, train_loader, criterion, optimizer, config.device)
+        train_loss, train_accuracy = train_epoch(
+            model, train_loader, criterion, optimizer, config.device, 
+            gradient_collector, config
+        )
+        
+        # Save gradients after epoch if enabled
+        if gradient_collector is not None and config.save_gradients_every_epoch:
+            print("Saving gradients for this epoch...")
+            gradient_collector.save_gradients(epoch=epoch)
+            
+            # Compute and display gradient statistics
+            print("Computing gradient statistics...")
+            compute_gradient_statistics(config.gradients_dir, epoch)
+            
+            # Clear gradients to free memory
+            gradient_collector.clear_gradients()
         
         # Test
         test_loss, test_accuracy = test_epoch(model, test_loader, criterion, config.device)
@@ -210,6 +243,9 @@ def main():
     print(f"  - {config.results_dir}/training_curves.png")
     print(f"  - {config.results_dir}/predictions.png")
     print(f"  - {config.model_save_path}")
+    
+    if config.collect_gradients:
+        print(f"  - {config.gradients_dir}/ (per-sample gradients)")
 
 if __name__ == "__main__":
     main() 

@@ -10,7 +10,7 @@ class Config:
     
     # Model parameters
     input_size = 784  # 28x28 flattened
-    hidden_sizes = [512]  # Hidden layer sizes
+    hidden_sizes = [32]  # small for testing
     output_size = 10  # 10 classes (0-9)
     dropout_rate = 0.
     
@@ -31,4 +31,10 @@ class Config:
     plot_dpi = 300
     
     # Random seed
-    random_seed = 42 
+    random_seed = 42
+    
+    # Gradient collection parameters
+    collect_gradients = True  # Whether to collect per-sample gradients
+    gradients_dir = 'results/gradients'  # Directory to save gradients
+    save_gradients_every_epoch = False
+    save_gradients_every_batch = True
