@@ -9,10 +9,12 @@ from torchvision import datasets, transforms
 import numpy as np
 import random
 import os
+from torch.cuda.amp.autocast_mode import autocast
+from torch.cuda.amp.grad_scaler import GradScaler
 
 from config import Config
 from model import MLP
-from utils import plot_training_curves, visualize_mnist_samples, visualize_predictions, create_results_dir, FilteredMNIST
+from utils import plot_training_curves, visualize_mnist_samples, visualize_predictions, create_results_dir
 from gradient_collector import PerSampleGradientCollector, compute_gradient_statistics
 
 def set_random_seed(seed):
@@ -27,28 +29,16 @@ def set_random_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 def get_data_loaders(config):
-    """Create train and test data loaders with optional digit filtering"""
+    """Create train and test data loaders"""
     # Define transforms
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))  # MNIST mean and std
     ])
     
-    # Load original datasets
-    original_train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    original_test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transform)
-    
-    # Apply digit filtering if specified
-    if config.filter_digits is not None:
-        print(f"Filtering digits: {config.filter_digits}")
-        label_mapping = config.get_label_mapping()
-        
-        train_dataset = FilteredMNIST(original_train_dataset, config.filter_digits, label_mapping)
-        test_dataset = FilteredMNIST(original_test_dataset, config.filter_digits, label_mapping)
-    else:
-        print("Using all digits (no filtering)")
-        train_dataset = original_train_dataset
-        test_dataset = original_test_dataset
+    # Load datasets
+    train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
+    test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transform)
     
     # Create data loaders
     train_loader = DataLoader(
@@ -66,32 +56,27 @@ def get_data_loaders(config):
     
     return train_loader, test_loader, train_dataset, test_dataset
 
-def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None, saved_images=None, saved_image_indices=None, epoch=0):
+def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None, saved_images=None, saved_image_indices=None, epoch=0, scaler=None):
     """Train for one epoch"""
     model.train()
     running_loss = 0.0
     correct = 0
     total = 0
     
-    # Initialize image saving and prediction collection for first epoch
+    # Initialize image saving for first epoch
     if epoch == 0:
-        if saved_images is None:
-            saved_images = []
-        if saved_image_indices is None:
-            saved_image_indices = []
-        saved_predictions = []
-        print("Initializing MNIST image collection and prediction saving for visualization...")
-    else:
-        saved_predictions = None
+        saved_images = saved_images or []
+        saved_image_indices = saved_image_indices or []
+        print("Initializing MNIST image collection for visualization...")
     
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
+        data, target = data.to(device, dtype=config.dtype if config else torch.float32), target.to(device)
         
         # Save MNIST images for visualization (only for first epoch to save space)
         if epoch == 0 and config is not None and saved_images is not None and saved_image_indices is not None:
             # Get the current batch images and their global indices
-            batch_images = data.cpu()  # Move to CPU for saving
-            current_count = len(saved_images)
+            batch_images = data.cpu().float()  # Convert to float for saving
+            current_count = len(saved_images) if saved_images else 0
             batch_indices = list(range(current_count, current_count + len(batch_images)))
             
             # Extend the saved images lists
@@ -99,12 +84,11 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
             saved_image_indices.extend(batch_indices)
             
             # Save at the end of epoch
-            if batch_idx == len(train_loader) - 1:
+            if batch_idx == len(train_loader) - 1 and saved_images:
                 print(f"Saving {len(saved_images)} MNIST images for visualization...")
                 os.makedirs(config.gradients_dir, exist_ok=True)
                 torch.save(torch.stack(saved_images), os.path.join(config.gradients_dir, f"mnist_images_epoch_{epoch}.pt"))
                 torch.save(torch.tensor(saved_image_indices), os.path.join(config.gradients_dir, f"mnist_image_indices_epoch_{epoch}.pt"))
-                
                 print("MNIST images saved successfully!")
                 print(f"Images saved to: {config.gradients_dir}/mnist_images_epoch_{epoch}.pt")
         
@@ -117,8 +101,19 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
                 gradient_collector.save_gradients(epoch=epoch, batch_idx=batch_idx)
                 gradient_collector.clear_gradients()
         
-        # Normal training step
+        # Normal training step with autocast for mixed precision
         optimizer.zero_grad()
+        
+        if config and config.autocast_enabled and scaler is not None:
+            with autocast():
+                output = model(data)
+                loss = criterion(output, target)
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            # Direct bfloat16 training without autocast
         output = model(data)
         loss = criterion(output, target)
         loss.backward()
@@ -129,26 +124,15 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
         total += target.size(0)
         correct += (predicted == target).sum().item()
         
-        # Save model predictions for first epoch (after computing predictions)
-        if epoch == 0 and saved_predictions is not None:
-            saved_predictions.extend(predicted.cpu().tolist())
-        
         if batch_idx % 100 == 0:
             print(f'Batch {batch_idx}/{len(train_loader)}, Loss: {loss.item():.4f}')
-    
-    # Save predictions at the end of epoch (outside the batch loop for robustness)
-    if epoch == 0 and saved_predictions is not None and config is not None:
-        print(f"Saving {len(saved_predictions)} model predictions at end of epoch...")
-        os.makedirs(config.gradients_dir, exist_ok=True)
-        torch.save(torch.tensor(saved_predictions), os.path.join(config.gradients_dir, f"model_predictions_epoch_{epoch}.pt"))
-        print(f"Predictions saved to: {config.gradients_dir}/model_predictions_epoch_{epoch}.pt")
     
     epoch_loss = running_loss / len(train_loader)
     epoch_accuracy = 100. * correct / total
     
     return epoch_loss, epoch_accuracy, saved_images, saved_image_indices
 
-def test_epoch(model, test_loader, criterion, device):
+def test_epoch(model, test_loader, criterion, device, config):
     """Test for one epoch"""
     model.eval()
     running_loss = 0.0
@@ -157,7 +141,13 @@ def test_epoch(model, test_loader, criterion, device):
     
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+            data, target = data.to(device, dtype=config.dtype if config else torch.float32), target.to(device)
+            
+            if config and config.autocast_enabled:
+                with autocast():
+                    output = model(data)
+                    loss = criterion(output, target)
+            else:
             output = model(data)
             loss = criterion(output, target)
             
@@ -197,18 +187,18 @@ def main():
     
     # Create model
     print("Creating MLP model...")
-    actual_output_size = config.get_output_size()
-    print(f"Model output size: {actual_output_size} (filtered from {config.output_size} original classes)")
-    
     model = MLP(
         input_size=config.input_size,
         hidden_sizes=config.hidden_sizes,
-        output_size=actual_output_size,
-        dropout_rate=config.dropout_rate
-    ).to(config.device)
+        output_size=config.output_size,
+        dropout_rate=config.dropout_rate,
+        dtype=config.dtype
+    ).to(config.device, dtype=config.dtype)
     
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+    print(f"Using dtype: {config.dtype}")
+    print(f"Autocast enabled: {config.autocast_enabled}")
     
     # Initialize gradient collector if enabled
     gradient_collector = None
@@ -224,6 +214,12 @@ def main():
         lr=config.learning_rate, 
         weight_decay=config.weight_decay
     )
+    
+    # Initialize gradient scaler for mixed precision
+    scaler = None
+    if config.autocast_enabled:
+        scaler = GradScaler()
+        print("Gradient scaler initialized for mixed precision training")
     
     # Training loop
     print(f"Starting training for {config.num_epochs} epochs...")
@@ -245,7 +241,7 @@ def main():
         # Train
         train_loss, train_accuracy, saved_images, saved_image_indices = train_epoch(
             model, train_loader, criterion, optimizer, config.device, 
-            gradient_collector, config, saved_images, saved_image_indices, epoch
+            gradient_collector, config, saved_images, saved_image_indices, epoch, scaler
         )
         
         # Save gradients after epoch if enabled
@@ -261,7 +257,7 @@ def main():
             gradient_collector.clear_gradients()
         
         # Test
-        test_loss, test_accuracy = test_epoch(model, test_loader, criterion, config.device)
+        test_loss, test_accuracy = test_epoch(model, test_loader, criterion, config.device, config)
         
         # Store metrics
         train_losses.append(train_loss)

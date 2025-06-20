@@ -6,7 +6,6 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from torchvision.utils import make_grid
-from torch.utils.data import Dataset
 
 def plot_training_curves(train_losses, test_losses, train_accuracies, test_accuracies, save_path):
     """
@@ -68,8 +67,8 @@ def visualize_mnist_samples(dataloader, num_samples=16, save_path=None):
     images = images[:num_samples]
     labels = labels[:num_samples]
     
-    # Ensure tensors are on CPU and convert to numpy
-    images = images.cpu().detach()
+    # Ensure tensors are on CPU and convert to float32 for plotting
+    images = images.cpu().detach().to(torch.float32)  # Convert to float32 to avoid bfloat16 issues
     labels = labels.cpu().detach()
     
     # Create grid
@@ -112,12 +111,14 @@ def visualize_predictions(model, dataloader, device, num_samples=16, save_path=N
     true_labels = true_labels[:num_samples]
     
     with torch.no_grad():
-        images_device = images.to(device)
+        # Convert images to the same dtype as the model
+        model_dtype = next(model.parameters()).dtype
+        images_device = images.to(device, dtype=model_dtype)
         outputs = model(images_device)
         _, predicted_labels = torch.max(outputs, 1)
     
-    # Ensure tensors are on CPU and convert to numpy
-    images = images.cpu().detach()
+    # Ensure tensors are on CPU and convert to float32 for plotting
+    images = images.cpu().detach().to(torch.float32)  # Convert to float32 to avoid bfloat16 issues
     true_labels = true_labels.cpu().detach()
     predicted_labels = predicted_labels.cpu().detach()
     
@@ -153,65 +154,4 @@ def create_results_dir(results_dir):
     """Create results directory if it doesn't exist"""
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-        print(f"Created results directory: {results_dir}")
-
-class FilteredMNIST(Dataset):
-    """
-    Wrapper for MNIST dataset that filters specific digits and remaps labels.
-    
-    Args:
-        dataset: Original MNIST dataset
-        filter_digits: List of digits to include (e.g., [0, 1, 2, 3, 4])
-        label_mapping: Dictionary mapping original labels to new labels
-    """
-    
-    def __init__(self, dataset, filter_digits=None, label_mapping=None):
-        self.dataset = dataset
-        self.filter_digits = filter_digits
-        self.label_mapping = label_mapping or {}
-        
-        if filter_digits is not None:
-            # Find indices of samples with desired digits
-            self.filtered_indices = []
-            self.filtered_labels = []
-            
-            for idx, (_, label) in enumerate(dataset):
-                if label in filter_digits:
-                    self.filtered_indices.append(idx)
-                    # Map to new label space (0, 1, 2, ...)
-                    new_label = self.label_mapping.get(label, label)
-                    self.filtered_labels.append(new_label)
-            
-            print(f"Filtered dataset: {len(self.filtered_indices)} samples from {len(dataset)} total")
-            print(f"Original digits: {sorted(set(filter_digits))}")
-            print(f"New label mapping: {self.label_mapping}")
-            
-            # Print distribution
-            unique_labels, counts = np.unique(self.filtered_labels, return_counts=True)
-            for label, count in zip(unique_labels, counts):
-                original_digit = [k for k, v in self.label_mapping.items() if v == label][0]
-                print(f"  Digit {original_digit} -> Label {label}: {count} samples")
-        else:
-            # No filtering - use all samples
-            self.filtered_indices = list(range(len(dataset)))
-            self.filtered_labels = [dataset[i][1] for i in self.filtered_indices]
-    
-    def __len__(self):
-        return len(self.filtered_indices)
-    
-    def __getitem__(self, idx):
-        original_idx = self.filtered_indices[idx]
-        data, _ = self.dataset[original_idx]
-        label = self.filtered_labels[idx]
-        return data, label
-    
-    def get_original_label(self, filtered_label):
-        """Convert filtered label back to original digit"""
-        if self.filter_digits is None:
-            return filtered_label
-        
-        # Find original digit for this filtered label
-        for original_digit, mapped_label in self.label_mapping.items():
-            if mapped_label == filtered_label:
-                return original_digit
-        return filtered_label 
+        print(f"Created results directory: {results_dir}") 

@@ -4,6 +4,9 @@ Configuration file for CIFAR-10 CNN training
 import torch
 
 class CIFARConfig:
+    # Jacob: added this, idk what it does
+    filter_digits = True
+    
     # Data parameters
     batch_size = 128
     num_workers = 4
@@ -27,15 +30,16 @@ class CIFARConfig:
     # Model parameters
     num_classes = 10  # CIFAR-10 has 10 classes
     dropout_rate = 0.
-    use_batch_norm = True
     
     # Training parameters
     learning_rate = 0.001
-    num_epochs = 2  # Start with 1 for testing
+    num_epochs = 1
     weight_decay = 1e-4
     
-    # Device
+    # Device and precision
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dtype = torch.bfloat16  # Use bfloat16 by default
+    autocast_enabled = False  # Disable autocast for bfloat16 (GradScaler doesn't support bfloat16)
     
     # Paths
     results_dir = 'cifar_results'
@@ -49,7 +53,7 @@ class CIFARConfig:
     random_seed = 42
     
     # Gradient collection parameters
-    collect_gradients = True  # Whether to collect per-sample gradients
+    collect_gradients = True
     gradients_dir = 'cifar_results/gradients'  # Directory to save gradients
     save_gradients_every_epoch = False
     save_gradients_every_batch = True

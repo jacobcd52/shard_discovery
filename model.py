@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MLP(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size, dropout_rate=0.2):
+    def __init__(self, input_size, hidden_sizes, output_size, dropout_rate=0.2, dtype=torch.float32):
         super(MLP, self).__init__()
         
         layers = []
@@ -15,14 +15,14 @@ class MLP(nn.Module):
         # Add hidden layers
         for hidden_size in hidden_sizes:
             layers.extend([
-                nn.Linear(prev_size, hidden_size),
+                nn.Linear(prev_size, hidden_size, dtype=dtype),
                 nn.ReLU(),
                 nn.Dropout(dropout_rate)
             ])
             prev_size = hidden_size
         
         # Add output layer
-        layers.append(nn.Linear(prev_size, output_size))
+        layers.append(nn.Linear(prev_size, output_size, dtype=dtype))
         
         self.network = nn.Sequential(*layers)
     

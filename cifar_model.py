@@ -17,11 +17,10 @@ class CIFARCNN(nn.Module):
         pool_stride = config.pool_stride
         fc_sizes = config.fc_sizes  # This is now a property that auto-calculates
         dropout_rate = config.dropout_rate
-        use_batch_norm = config.use_batch_norm
+        dtype = getattr(config, 'dtype', torch.float32)  # Default to float32 if not specified
         
         # Convolutional layers
         self.conv_layers = nn.ModuleList()
-        self.bn_layers = nn.ModuleList()
         
         for i in range(len(conv_channels) - 1):
             # Conv layer
@@ -29,17 +28,10 @@ class CIFARCNN(nn.Module):
                 conv_channels[i], 
                 conv_channels[i + 1], 
                 kernel_size=conv_kernel_sizes[i], 
-                padding=conv_padding[i]
+                padding=conv_padding[i],
+                dtype=dtype
             )
             self.conv_layers.append(conv)
-            
-            # Batch norm layer (if enabled)
-            if use_batch_norm:
-                bn = nn.BatchNorm2d(conv_channels[i + 1])
-                self.bn_layers.append(bn)
-            else:
-                # Add a placeholder module that does nothing
-                self.bn_layers.append(nn.Identity())
         
         # Pooling layer
         self.pool = nn.MaxPool2d(pool_kernel_size, pool_stride)
@@ -56,14 +48,13 @@ class CIFARCNN(nn.Module):
         # Fully connected layers
         self.fc_layers = nn.ModuleList()
         for i in range(len(fc_sizes) - 1):
-            fc = nn.Linear(fc_sizes[i], fc_sizes[i + 1])
+            fc = nn.Linear(fc_sizes[i], fc_sizes[i + 1], dtype=dtype)
             self.fc_layers.append(fc)
     
     def forward(self, x):
-        # Convolutional layers with batch norm and ReLU
-        for i, (conv, bn) in enumerate(zip(self.conv_layers, self.bn_layers)):
+        # Convolutional layers with ReLU
+        for i, conv in enumerate(self.conv_layers):
             x = conv(x)
-            x = bn(x)
             x = F.relu(x)
             x = self.pool(x)
             x = self.dropout(x)
@@ -83,10 +74,9 @@ class CIFARCNN(nn.Module):
     
     def get_features(self, x):
         """Get features from the last hidden layer before classification"""
-        # Convolutional layers with batch norm and ReLU
-        for i, (conv, bn) in enumerate(zip(self.conv_layers, self.bn_layers)):
+        # Convolutional layers with ReLU
+        for i, conv in enumerate(self.conv_layers):
             x = conv(x)
-            x = bn(x)
             x = F.relu(x)
             x = self.pool(x)
             x = self.dropout(x)

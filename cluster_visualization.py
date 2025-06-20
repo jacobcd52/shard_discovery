@@ -36,9 +36,9 @@ def load_gradients_for_parameter(param_name, epoch, data_dir="gradients"):
         print(f"Error loading gradients for {param_name}: {e}")
         return None
 
-def visualize_cluster_samples(clustering_results, param_name, epoch, data_dir="results/gradients", num_samples_per_cluster=10):
+def visualize_cluster_samples(clustering_results, param_name, epoch, data_dir="results/gradients", num_samples_per_cluster=10, dataset="mnist"):
     """
-    Visualize MNIST samples from each cluster.
+    Visualize samples from each cluster.
     
     Args:
         clustering_results: Results from k-means clustering
@@ -46,6 +46,7 @@ def visualize_cluster_samples(clustering_results, param_name, epoch, data_dir="r
         epoch: Epoch number
         data_dir: Directory containing gradient data
         num_samples_per_cluster: Number of samples to show per cluster
+        dataset: Dataset type ("mnist" or "cifar")
     """
     
     cluster_labels = clustering_results['cluster_labels']
@@ -77,14 +78,22 @@ def visualize_cluster_samples(clustering_results, param_name, epoch, data_dir="r
             if len(selected_indices) < num_samples_per_cluster:
                 print(f"Warning: Cluster {cluster_id} only has {len(selected_indices)} samples, showing all of them")
         
-        # Load and display MNIST images for these samples
+        # Load and display images for these samples
         for i, sample_idx in enumerate(selected_indices):
             try:
-                # Load the MNIST image for this sample
-                image = load_mnist_image_for_sample(sample_idx, epoch, data_dir)
+                # Load the image for this sample
+                image = load_image_for_sample(sample_idx, epoch, data_dir, dataset)
                 
                 ax = axes[cluster_id, i]
-                ax.imshow(image, cmap='gray')
+                
+                # Display image based on dataset type
+                if dataset.lower() in ["cifar", "cifar10"]:
+                    # CIFAR images are color (32x32x3)
+                    ax.imshow(image)
+                else:
+                    # MNIST images are grayscale (28x28)
+                    ax.imshow(image, cmap='gray')
+                
                 ax.set_title(f'Sample {sample_idx}', fontsize=8)
                 ax.axis('off')
                 
@@ -100,7 +109,8 @@ def visualize_cluster_samples(clustering_results, param_name, epoch, data_dir="r
         axes[cluster_id, 0].set_ylabel(f'Cluster {cluster_id}\n({cluster_size} samples, {cluster_percentage:.1f}%)', 
                                      fontsize=10, rotation=0, ha='right', va='center')
     
-    plt.suptitle(f'MNIST Samples by Cluster - {param_name} (Epoch {epoch})', fontsize=14)
+    dataset_name = "CIFAR-10" if dataset.lower() in ["cifar", "cifar10"] else "MNIST"
+    plt.suptitle(f'{dataset_name} Samples by Cluster - {param_name} (Epoch {epoch})', fontsize=14)
     plt.tight_layout()
     plt.show()
     
@@ -156,6 +166,74 @@ def load_mnist_image_for_sample(sample_idx, epoch, data_dir="results/gradients")
         
     except Exception as e:
         raise RuntimeError(f"Error loading image for sample {sample_idx}: {e}")
+
+def load_cifar_image_for_sample(sample_idx, epoch, data_dir="cifar_results/gradients"):
+    """
+    Load the CIFAR-10 image for a specific sample index.
+    
+    Args:
+        sample_idx: Index of the sample
+        epoch: Epoch number
+        data_dir: Directory containing data
+    
+    Returns:
+        CIFAR-10 image as numpy array (32x32x3) or raises error if not found
+    """
+    try:
+        # Try to load from saved CIFAR-10 images
+        image_path = os.path.join(data_dir, f"cifar_images_epoch_{epoch}.pt")
+        if os.path.exists(image_path):
+            images = torch.load(image_path)
+            if sample_idx < len(images):
+                image = images[sample_idx].numpy()
+                
+                # Handle different image formats
+                if image.ndim == 3 and image.shape[0] == 3:
+                    # CIFAR format: (3, 32, 32) -> (32, 32, 3)
+                    image = image.transpose(1, 2, 0)
+                elif image.ndim == 1 and image.shape[0] == 3072:
+                    # Flattened format: (3072,) -> (32, 32, 3)
+                    image = image.reshape(32, 32, 3)
+                
+                # Denormalize: reverse the CIFAR-10 normalization
+                # Original normalization: (x - mean) / std
+                # CIFAR-10 means: [0.4914, 0.4822, 0.4465]
+                # CIFAR-10 stds: [0.2023, 0.1994, 0.2010]
+                means = np.array([0.4914, 0.4822, 0.4465])
+                stds = np.array([0.2023, 0.1994, 0.2010])
+                
+                # Apply denormalization
+                image = image * stds + means
+                
+                # Clip to valid range [0, 1]
+                image = np.clip(image, 0, 1)
+                
+                return image
+            else:
+                raise ValueError(f"Sample index {sample_idx} out of range (max: {len(images)-1})")
+        else:
+            raise FileNotFoundError(f"CIFAR-10 images file not found: {image_path}")
+        
+    except Exception as e:
+        raise RuntimeError(f"Error loading CIFAR-10 image for sample {sample_idx}: {e}")
+
+def load_image_for_sample(sample_idx, epoch, data_dir="results/gradients", dataset="mnist"):
+    """
+    Load image for a specific sample index, automatically detecting dataset.
+    
+    Args:
+        sample_idx: Index of the sample
+        epoch: Epoch number
+        data_dir: Directory containing data
+        dataset: Dataset type ("mnist" or "cifar")
+    
+    Returns:
+        Image as numpy array or raises error if not found
+    """
+    if dataset.lower() == "cifar" or dataset.lower() == "cifar10":
+        return load_cifar_image_for_sample(sample_idx, epoch, data_dir)
+    else:
+        return load_mnist_image_for_sample(sample_idx, epoch, data_dir)
 
 def visualize_cluster_centers(clustering_results, param_name, epoch, data_dir="results/gradients"):
     """
@@ -277,7 +355,7 @@ def analyze_cluster_diversity(clustering_results, param_name, epoch, data_dir="r
         print(f"  Distance range: {distances.min():.6f} - {distances.max():.6f}")
         print()
 
-def visualize_specific_cluster(clustering_results, param_name, epoch, cluster_id, data_dir="results/gradients", num_samples=10):
+def visualize_specific_cluster(clustering_results, param_name, epoch, cluster_id, data_dir="results/gradients", num_samples=10, dataset="mnist"):
     """
     Visualize samples from a specific cluster.
     
@@ -288,6 +366,7 @@ def visualize_specific_cluster(clustering_results, param_name, epoch, cluster_id
         cluster_id: ID of the cluster to visualize
         data_dir: Directory containing gradient data
         num_samples: Number of samples to display (default: 10)
+        dataset: Dataset type ("mnist" or "cifar")
     """
     
     cluster_labels = clustering_results['cluster_labels']
@@ -326,14 +405,22 @@ def visualize_specific_cluster(clustering_results, param_name, epoch, cluster_id
     # Flatten axes for easier indexing
     axes_flat = axes.flatten()
     
-    # Display MNIST images in grid
+    # Display images in grid
     for i, sample_idx in enumerate(selected_indices):
         try:
-            # Load the MNIST image for this sample
-            image = load_mnist_image_for_sample(sample_idx, epoch, data_dir)
+            # Load the image for this sample
+            image = load_image_for_sample(sample_idx, epoch, data_dir, dataset)
             
             ax = axes_flat[i]
-            ax.imshow(image, cmap='gray')
+            
+            # Display image based on dataset type
+            if dataset.lower() in ["cifar", "cifar10"]:
+                # CIFAR images are color (32x32x3)
+                ax.imshow(image)
+            else:
+                # MNIST images are grayscale (28x28)
+                ax.imshow(image, cmap='gray')
+            
             ax.set_title(f'{sample_idx}', fontsize=8)
             ax.axis('off')
             

@@ -69,8 +69,8 @@ class PerSampleGradientCollector:
             # Collect gradients for this sample
             for name, param in self.model.named_parameters():
                 if param.requires_grad and param.grad is not None:
-                    # Detach and move to CPU to save memory
-                    grad = param.grad.detach().cpu().clone()
+                    # Detach and move to CPU, convert to float32 for compatibility
+                    grad = param.grad.detach().cpu().to(torch.float32).clone()
                     
                     # Store gradient
                     self.gradients[name]['gradients'].append(grad)
@@ -171,6 +171,9 @@ def compute_gradient_statistics(gradients_dir, epoch):
         
         grad_data = torch.load(grad_path)
         gradients = grad_data['gradients']  # Shape: [num_samples, *param_shape]
+        
+        # Ensure gradients are in float32 for computation
+        gradients = gradients.to(torch.float32)
         
         # Compute statistics
         grad_norms = torch.norm(gradients.view(gradients.size(0), -1), dim=1)

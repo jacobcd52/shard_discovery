@@ -73,8 +73,8 @@ def visualize_cifar_samples(dataloader, num_samples=16, save_path=None):
     images = images[:num_samples]
     labels = labels[:num_samples]
     
-    # Ensure tensors are on CPU and convert to numpy
-    images = images.cpu().detach()
+    # Ensure tensors are on CPU and convert to float32 for plotting
+    images = images.cpu().detach().to(torch.float32)  # Convert to float32 to avoid bfloat16 issues
     labels = labels.cpu().detach()
     
     # Create grid
@@ -119,12 +119,14 @@ def visualize_predictions(model, dataloader, device, num_samples=16, save_path=N
     true_labels = true_labels[:num_samples]
     
     with torch.no_grad():
-        images_device = images.to(device)
+        # Convert images to the same dtype as the model
+        model_dtype = next(model.parameters()).dtype
+        images_device = images.to(device, dtype=model_dtype)
         outputs = model(images_device)
         _, predicted_labels = torch.max(outputs, 1)
     
-    # Ensure tensors are on CPU and convert to numpy
-    images = images.cpu().detach()
+    # Ensure tensors are on CPU and convert to float32 for plotting
+    images = images.cpu().detach().to(torch.float32)  # Convert to float32 to avoid bfloat16 issues
     true_labels = true_labels.cpu().detach()
     predicted_labels = predicted_labels.cpu().detach()
     

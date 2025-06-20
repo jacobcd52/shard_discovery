@@ -9,6 +9,8 @@ from torchvision import datasets, transforms
 import numpy as np
 import random
 import os
+from torch.cuda.amp.autocast_mode import autocast
+from torch.cuda.amp.grad_scaler import GradScaler
 
 from cifar_config import CIFARConfig
 from cifar_model import CIFARCNN
@@ -54,7 +56,7 @@ def get_data_loaders(config):
     
     return train_loader, test_loader, train_dataset, test_dataset
 
-def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None, saved_images=None, saved_image_indices=None, epoch=0):
+def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None, saved_images=None, saved_image_indices=None, epoch=0, scaler=None):
     """Train for one epoch"""
     model.train()
     running_loss = 0.0
@@ -68,12 +70,12 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
         print("Initializing CIFAR-10 image collection for visualization...")
     
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
+        data, target = data.to(device, dtype=config.dtype if config else torch.float32), target.to(device)
         
         # Save CIFAR-10 images for visualization (only for first epoch to save space)
         if epoch == 0 and config is not None and saved_images is not None and saved_image_indices is not None:
             # Get the current batch images and their global indices
-            batch_images = data.cpu()  # Move to CPU for saving
+            batch_images = data.cpu().float()  # Convert to float for saving
             current_count = len(saved_images)
             batch_indices = list(range(current_count, current_count + len(batch_images)))
             
@@ -99,12 +101,23 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
                 gradient_collector.save_gradients(epoch=epoch, batch_idx=batch_idx)
                 gradient_collector.clear_gradients()
         
-        # Normal training step
+        # Normal training step with autocast for mixed precision
         optimizer.zero_grad()
-        output = model(data)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
+        
+        if config and config.autocast_enabled and scaler is not None:
+            with autocast():
+                output = model(data)
+                loss = criterion(output, target)
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            # Direct bfloat16 training without autocast
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
         
         running_loss += loss.item()
         _, predicted = torch.max(output.data, 1)
@@ -119,7 +132,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
     
     return epoch_loss, epoch_accuracy, saved_images, saved_image_indices
 
-def test_epoch(model, test_loader, criterion, device):
+def test_epoch(model, test_loader, criterion, device, config):
     """Test for one epoch"""
     model.eval()
     running_loss = 0.0
@@ -128,9 +141,15 @@ def test_epoch(model, test_loader, criterion, device):
     
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            loss = criterion(output, target)
+            data, target = data.to(device, dtype=config.dtype if config else torch.float32), target.to(device)
+            
+            if config and config.autocast_enabled:
+                with autocast():
+                    output = model(data)
+                    loss = criterion(output, target)
+            else:
+                output = model(data)
+                loss = criterion(output, target)
             
             running_loss += loss.item()
             _, predicted = torch.max(output.data, 1)
@@ -168,10 +187,12 @@ def main():
     
     # Create model
     print("Creating CIFAR-10 CNN model...")
-    model = CIFARCNN(config).to(config.device)
+    model = CIFARCNN(config).to(config.device, dtype=config.dtype)
     
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+    print(f"Using dtype: {config.dtype}")
+    print(f"Autocast enabled: {config.autocast_enabled}")
     
     # Initialize gradient collector if enabled
     gradient_collector = None
@@ -187,6 +208,12 @@ def main():
         lr=config.learning_rate, 
         weight_decay=config.weight_decay
     )
+    
+    # Initialize gradient scaler for mixed precision
+    scaler = None
+    if config.autocast_enabled:
+        scaler = GradScaler()
+        print("Gradient scaler initialized for mixed precision training")
     
     # Training loop
     print(f"Starting training for {config.num_epochs} epochs...")
@@ -208,7 +235,7 @@ def main():
         # Train
         train_loss, train_accuracy, saved_images, saved_image_indices = train_epoch(
             model, train_loader, criterion, optimizer, config.device, 
-            gradient_collector, config, saved_images, saved_image_indices, epoch
+            gradient_collector, config, saved_images, saved_image_indices, epoch, scaler
         )
         
         # Save gradients after epoch if enabled
@@ -224,7 +251,7 @@ def main():
             gradient_collector.clear_gradients()
         
         # Test
-        test_loss, test_accuracy = test_epoch(model, test_loader, criterion, config.device)
+        test_loss, test_accuracy = test_epoch(model, test_loader, criterion, config.device, config)
         
         # Store metrics
         train_losses.append(train_loss)
