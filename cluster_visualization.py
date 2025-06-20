@@ -379,7 +379,8 @@ def print_cluster_info(cluster_labels, param_name, n_clusters=10, samples_per_cl
         print(f"  Sample indices: {selected_indices.tolist()}")
 
 def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
-                           n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6), config=None):
+                           n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6), config=None,
+                           start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0):
     """
     Create t-SNE visualization of gradients with three different colorings:
     1. Points colored by true labels
@@ -395,9 +396,14 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
         perplexity: t-SNE perplexity parameter
         random_state: Random seed for reproducibility
         figsize: Figure size for the plot
+        config: Configuration object for filtering info
+        start_fraction: Fraction of training samples to start from (0.0 to 1.0)
+        end_fraction: Fraction of training samples to end at (0.0 to 1.0)
+        min_grad_percentile: Minimum gradient norm percentile to include (0.0 to 100.0)
     """
     
     print(f"Creating t-SNE visualization for {param_name} (epoch {epoch})")
+    print(f"Filtering: start_fraction={start_fraction:.1%}, end_fraction={end_fraction:.1%}, min_grad_percentile={min_grad_percentile:.1f}%")
     
     # Get cluster assignments
     cluster_labels = clustering_results['cluster_labels']
@@ -412,29 +418,85 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     gradients_tensor = stacked_gradients[param_name]
     print(f"Loaded gradients tensor: {gradients_tensor.shape}")
     
-    # Flatten gradients for t-SNE
-    # gradients_tensor shape: [num_samples, *param_shape]
-    original_shape = gradients_tensor.shape
-    flattened_gradients = gradients_tensor.view(original_shape[0], -1)
+    # Apply training position filtering (similar to k-means)
+    num_total_samples = gradients_tensor.shape[0]
+    start_idx = int(start_fraction * num_total_samples)
+    end_idx = int(end_fraction * num_total_samples)
+    subset_size = end_idx - start_idx
     
-    # Sample a subset for t-SNE (for performance)
-    if n_samples < len(flattened_gradients):
-        # Random sampling
-        np.random.seed(random_state)
-        sample_indices = np.random.choice(len(flattened_gradients), n_samples, replace=False)
-        sample_gradients = flattened_gradients[sample_indices].cpu().numpy()
-        sample_cluster_labels = cluster_labels[sample_indices]
+    print(f"Training position filtering: using samples {start_idx} to {end_idx-1} ({subset_size}/{num_total_samples} samples)")
+    
+    # Extract subset
+    subset_gradients = gradients_tensor[start_idx:end_idx]
+    subset_cluster_labels = cluster_labels[start_idx:end_idx]
+    
+    # Flatten gradients for norm calculation and t-SNE
+    original_shape = subset_gradients.shape
+    flattened_subset = subset_gradients.view(subset_size, -1)
+    
+    # Apply gradient norm filtering
+    if min_grad_percentile > 0.0:
+        gradient_norms = torch.norm(flattened_subset, dim=1)
+        percentile_threshold = torch.quantile(gradient_norms, min_grad_percentile / 100.0)
+        print(f"Gradient norm percentile threshold: {percentile_threshold:.4f}")
+        
+        # Filter gradients by norm
+        norm_mask = gradient_norms >= percentile_threshold
+        filtered_indices = torch.nonzero(norm_mask).squeeze(-1)
+        filtered_size = len(filtered_indices)
+        
+        print(f"Gradient norm filtering: {filtered_size}/{subset_size} samples with norm >= {percentile_threshold:.4f}")
+        
+        if filtered_size == 0:
+            print("Error: No samples remain after filtering!")
+            return
+        
+        # Extract filtered gradients and labels
+        filtered_gradients = flattened_subset[filtered_indices]
+        filtered_cluster_labels = subset_cluster_labels[filtered_indices]
+        
+        # Create mapping to original indices (for loading labels)
+        # filtered_indices are relative to subset, map to original dataset indices
+        original_sample_indices = start_idx + filtered_indices.cpu().numpy()
+        
     else:
-        sample_gradients = flattened_gradients.cpu().numpy()
-        sample_cluster_labels = cluster_labels
-        sample_indices = np.arange(len(flattened_gradients))
+        # No gradient norm filtering
+        filtered_gradients = flattened_subset
+        filtered_cluster_labels = subset_cluster_labels
+        filtered_size = subset_size
+        original_sample_indices = np.arange(start_idx, end_idx)
+        print(f"No gradient norm filtering applied")
+    
+    # Final sampling for t-SNE performance
+    if n_samples < filtered_size:
+        print(f"Final sampling for t-SNE: {n_samples}/{filtered_size} samples")
+        np.random.seed(random_state)
+        final_sample_indices = np.random.choice(filtered_size, n_samples, replace=False)
+        
+        sample_gradients = filtered_gradients[final_sample_indices].cpu().numpy()
+        # Handle both tensor and numpy array cases for cluster labels
+        if isinstance(filtered_cluster_labels, torch.Tensor):
+            sample_cluster_labels = filtered_cluster_labels[torch.from_numpy(final_sample_indices)].cpu().numpy()
+        else:
+            sample_cluster_labels = filtered_cluster_labels[final_sample_indices]
+        # Map to original dataset indices
+        sample_original_indices = original_sample_indices[final_sample_indices]
+    else:
+        sample_gradients = filtered_gradients.cpu().numpy()
+        # Handle both tensor and numpy array cases for cluster labels
+        if isinstance(filtered_cluster_labels, torch.Tensor):
+            sample_cluster_labels = filtered_cluster_labels.cpu().numpy()
+        else:
+            sample_cluster_labels = filtered_cluster_labels
+        sample_original_indices = original_sample_indices
+        n_samples = filtered_size
     
     print(f"Using {len(sample_gradients)} samples for t-SNE")
     
     # Load true labels for the sampled indices
     print("Loading true labels...")
-    true_labels = load_true_labels_for_samples(sample_indices, epoch, data_dir)
-    original_labels = load_original_labels_for_samples(sample_indices, epoch, data_dir)
+    true_labels = load_true_labels_for_samples(sample_original_indices, epoch, data_dir)
+    original_labels = load_original_labels_for_samples(sample_original_indices, epoch, data_dir)
     
     if true_labels is None:
         print("Warning: Could not load true labels, creating visualization with cluster labels only")
@@ -457,7 +519,7 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     
     # Load model predictions for the sampled indices
     print("Loading model predictions...")
-    model_predictions = load_model_predictions_for_samples(sample_indices, epoch, data_dir)
+    model_predictions = load_model_predictions_for_samples(sample_original_indices, epoch, data_dir)
     
     if model_predictions is None:
         print("Warning: Could not load model predictions, creating visualization with cluster labels only")
@@ -617,8 +679,31 @@ def load_model_predictions_for_samples(sample_indices, epoch, data_dir="results/
             if len(all_predictions) > max_index:
                 return all_predictions[sample_indices].numpy()
             else:
+                missing_count = max_index + 1 - len(all_predictions)
                 print(f"Warning: Predictions file has {len(all_predictions)} predictions but max index needed is {max_index}")
-                print(f"Missing {max_index + 1 - len(all_predictions)} predictions")
+                print(f"Missing {missing_count} predictions")
+                
+                # If only a few predictions are missing (likely due to training interruption), 
+                # use available predictions and return None for graceful fallback
+                if missing_count <= 10:  # Tolerate small mismatches
+                    print(f"Small mismatch detected ({missing_count} missing). Using available predictions where possible.")
+                    # Create result array, using available predictions where possible
+                    result = np.full(len(sample_indices), -1, dtype=np.int64)  # -1 for missing
+                    for i, idx in enumerate(sample_indices):
+                        if idx < len(all_predictions):
+                            result[i] = all_predictions[idx].item()
+                    
+                    # If most predictions are available, return the partial result
+                    available_count = np.sum(result != -1)
+                    if available_count > len(sample_indices) * 0.9:  # If >90% available
+                        print(f"Using {available_count}/{len(sample_indices)} available predictions")
+                        # Replace missing values with the most common prediction as fallback
+                        valid_preds = result[result != -1]
+                        if len(valid_preds) > 0:
+                            fallback_pred = np.bincount(valid_preds).argmax()
+                            result[result == -1] = fallback_pred
+                            return result
+                
                 return None
         else:
             print(f"Predictions file not found: {predictions_path}")

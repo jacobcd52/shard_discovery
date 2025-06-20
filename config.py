@@ -11,7 +11,7 @@ class Config:
     # Digit filtering parameters
     # filter_digits = None  # List of digits to include (None = all digits)
     # Examples:
-    filter_digits = [0, 1, 2, 3, 4]  # Only digits 0-4
+    filter_digits = [0, 1, 2, 3, 4, 5, 6, 7]  # Only digits 0-4
     # filter_digits = [0, 1]           # Only digits 0 and 1 (binary classification)
     # filter_digits = [2, 3, 5, 7]     # Only prime digits
     

@@ -105,12 +105,6 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
                 torch.save(torch.stack(saved_images), os.path.join(config.gradients_dir, f"mnist_images_epoch_{epoch}.pt"))
                 torch.save(torch.tensor(saved_image_indices), os.path.join(config.gradients_dir, f"mnist_image_indices_epoch_{epoch}.pt"))
                 
-                # Save predictions if we collected them
-                if saved_predictions is not None:
-                    torch.save(torch.tensor(saved_predictions), os.path.join(config.gradients_dir, f"model_predictions_epoch_{epoch}.pt"))
-                    print(f"Saved {len(saved_predictions)} model predictions")
-                    print(f"Predictions saved to: {config.gradients_dir}/model_predictions_epoch_{epoch}.pt")
-                
                 print("MNIST images saved successfully!")
                 print(f"Images saved to: {config.gradients_dir}/mnist_images_epoch_{epoch}.pt")
         
@@ -141,6 +135,13 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
         
         if batch_idx % 100 == 0:
             print(f'Batch {batch_idx}/{len(train_loader)}, Loss: {loss.item():.4f}')
+    
+    # Save predictions at the end of epoch (outside the batch loop for robustness)
+    if epoch == 0 and saved_predictions is not None and config is not None:
+        print(f"Saving {len(saved_predictions)} model predictions at end of epoch...")
+        os.makedirs(config.gradients_dir, exist_ok=True)
+        torch.save(torch.tensor(saved_predictions), os.path.join(config.gradients_dir, f"model_predictions_epoch_{epoch}.pt"))
+        print(f"Predictions saved to: {config.gradients_dir}/model_predictions_epoch_{epoch}.pt")
     
     epoch_loss = running_loss / len(train_loader)
     epoch_accuracy = 100. * correct / total
