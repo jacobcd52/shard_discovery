@@ -8,6 +8,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gradient_loader import load_stacked_gradients
 import os
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+import seaborn as sns
 
 def load_gradients_for_parameter(param_name, epoch, data_dir="gradients"):
     """
@@ -351,4 +354,251 @@ def visualize_specific_cluster(clustering_results, param_name, epoch, cluster_id
     # Print cluster statistics
     print(f"\nCluster {cluster_id} Statistics for {param_name} (Epoch {epoch}):")
     print(f"  Size: {cluster_size} samples ({cluster_percentage:.1f}%)")
-    print(f"  Sample indices: {selected_indices.tolist()}") 
+    print(f"  Sample indices: {selected_indices.tolist()}")
+
+def print_cluster_info(cluster_labels, param_name, n_clusters=10, samples_per_cluster=5):
+    """Print information about each cluster and show sample indices."""
+    print(f"\nCluster Information for {param_name}:")
+    print(f"Total samples: {len(cluster_labels)}")
+    print(f"Number of clusters: {n_clusters}")
+    
+    for cluster_id in range(n_clusters):
+        cluster_mask = cluster_labels == cluster_id
+        cluster_indices = np.where(cluster_mask)[0]
+        cluster_size = len(cluster_indices)
+        cluster_percentage = 100.0 * cluster_size / len(cluster_labels)
+        
+        # Select a few sample indices to show
+        selected_indices = cluster_indices[:samples_per_cluster] if len(cluster_indices) >= samples_per_cluster else cluster_indices
+        
+        print(f"\nCluster {cluster_id}:")
+        print(f"  Size: {cluster_size} samples ({cluster_percentage:.1f}%)")
+        print(f"  Sample indices: {selected_indices.tolist()}")
+
+def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
+                           n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6)):
+    """
+    Create t-SNE visualization of gradients with three different colorings:
+    1. Points colored by true labels
+    2. Points colored by cluster assignments
+    3. Points colored by model predictions
+    
+    Args:
+        clustering_results: Results from k-means clustering
+        param_name: Name of the parameter
+        epoch: Epoch number
+        data_dir: Directory containing gradient data
+        n_samples: Number of samples to use for t-SNE (for performance)
+        perplexity: t-SNE perplexity parameter
+        random_state: Random seed for reproducibility
+        figsize: Figure size for the plot
+    """
+    
+    print(f"Creating t-SNE visualization for {param_name} (epoch {epoch})")
+    
+    # Get cluster assignments
+    cluster_labels = clustering_results['cluster_labels']
+    n_clusters = clustering_results['n_clusters']
+    
+    # Load gradients for the parameter
+    stacked_gradients = load_stacked_gradients(data_dir, epoch)
+    if param_name not in stacked_gradients:
+        print(f"Parameter {param_name} not found in epoch {epoch}")
+        return
+    
+    gradients_tensor = stacked_gradients[param_name]
+    print(f"Loaded gradients tensor: {gradients_tensor.shape}")
+    
+    # Flatten gradients for t-SNE
+    # gradients_tensor shape: [num_samples, *param_shape]
+    original_shape = gradients_tensor.shape
+    flattened_gradients = gradients_tensor.view(original_shape[0], -1)
+    
+    # Sample a subset for t-SNE (for performance)
+    if n_samples < len(flattened_gradients):
+        # Random sampling
+        np.random.seed(random_state)
+        sample_indices = np.random.choice(len(flattened_gradients), n_samples, replace=False)
+        sample_gradients = flattened_gradients[sample_indices].cpu().numpy()
+        sample_cluster_labels = cluster_labels[sample_indices]
+    else:
+        sample_gradients = flattened_gradients.cpu().numpy()
+        sample_cluster_labels = cluster_labels
+        sample_indices = np.arange(len(flattened_gradients))
+    
+    print(f"Using {len(sample_gradients)} samples for t-SNE")
+    
+    # Load true labels for the sampled indices
+    print("Loading true labels...")
+    true_labels = load_true_labels_for_samples(sample_indices, epoch, data_dir)
+    
+    if true_labels is None:
+        print("Warning: Could not load true labels, creating visualization with cluster labels only")
+        true_labels = sample_cluster_labels  # Use cluster labels as fallback
+    
+    # Load model predictions for the sampled indices
+    print("Loading model predictions...")
+    model_predictions = load_model_predictions_for_samples(sample_indices, epoch, data_dir)
+    
+    if model_predictions is None:
+        print("Warning: Could not load model predictions, creating visualization with cluster labels only")
+        model_predictions = sample_cluster_labels  # Use cluster labels as fallback
+    
+    # Apply PCA for dimensionality reduction before t-SNE (for better performance)
+    print("Applying PCA for dimensionality reduction...")
+    if sample_gradients.shape[1] > 50:
+        pca = PCA(n_components=50, random_state=random_state)
+        reduced_gradients = pca.fit_transform(sample_gradients)
+        print(f"Reduced from {sample_gradients.shape[1]} to {reduced_gradients.shape[1]} dimensions")
+    else:
+        reduced_gradients = sample_gradients
+    
+    # Apply t-SNE
+    print("Applying t-SNE...")
+    tsne = TSNE(n_components=2, perplexity=perplexity, random_state=random_state, n_jobs=-1)
+    tsne_result = tsne.fit_transform(reduced_gradients)
+    
+    # Create visualization with three subplots
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+    
+    # Plot 1: Colored by true labels
+    scatter1 = ax1.scatter(tsne_result[:, 0], tsne_result[:, 1], 
+                          c=true_labels, cmap='tab10', alpha=0.7, s=20)
+    ax1.set_title(f't-SNE: True Labels\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax1.set_xlabel('t-SNE 1')
+    ax1.set_ylabel('t-SNE 2')
+    
+    # Add colorbar for true labels
+    cbar1 = plt.colorbar(scatter1, ax=ax1, ticks=range(10))
+    cbar1.set_label('True Label')
+    
+    # Plot 2: Colored by cluster assignments
+    scatter2 = ax2.scatter(tsne_result[:, 0], tsne_result[:, 1], 
+                          c=sample_cluster_labels, cmap='tab10', alpha=0.7, s=20)
+    ax2.set_title(f't-SNE: Cluster Assignment\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax2.set_xlabel('t-SNE 1')
+    ax2.set_ylabel('t-SNE 2')
+    
+    # Add colorbar for cluster labels
+    cbar2 = plt.colorbar(scatter2, ax=ax2, ticks=range(n_clusters))
+    cbar2.set_label('Cluster ID')
+    
+    # Plot 3: Colored by model predictions
+    scatter3 = ax3.scatter(tsne_result[:, 0], tsne_result[:, 1], 
+                          c=model_predictions, cmap='tab10', alpha=0.7, s=20)
+    ax3.set_title(f't-SNE: Model Predictions\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax3.set_xlabel('t-SNE 1')
+    ax3.set_ylabel('t-SNE 2')
+    
+    # Add colorbar for model predictions
+    cbar3 = plt.colorbar(scatter3, ax=ax3, ticks=range(10))
+    cbar3.set_label('Predicted Label')
+    
+    plt.tight_layout()
+    
+    # Save the plot
+    save_path = os.path.join("results", f"tsne_visualization_{param_name.replace('.', '_')}_epoch_{epoch}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"Saved t-SNE visualization to: {save_path}")
+    
+    plt.show()
+    
+    # Print some statistics
+    print(f"\nt-SNE Visualization Statistics:")
+    print(f"  Parameter: {param_name}")
+    print(f"  Epoch: {epoch}")
+    print(f"  Samples used: {len(sample_gradients)}")
+    print(f"  Number of clusters: {n_clusters}")
+    print(f"  t-SNE perplexity: {perplexity}")
+    
+    # Calculate label-cluster correspondence
+    if len(np.unique(true_labels)) > 1:  # Only if we have multiple true labels
+        print(f"\nLabel-Cluster Correspondence:")
+        for cluster_id in range(n_clusters):
+            cluster_mask = sample_cluster_labels == cluster_id
+            if np.any(cluster_mask):
+                cluster_true_labels = true_labels[cluster_mask]
+                unique_labels, counts = np.unique(cluster_true_labels, return_counts=True)
+                dominant_label = unique_labels[np.argmax(counts)]
+                dominant_percentage = 100 * np.max(counts) / len(cluster_true_labels)
+                print(f"  Cluster {cluster_id}: Dominant true label {dominant_label} ({dominant_percentage:.1f}%)")
+    
+    # Calculate prediction-cluster correspondence
+    if len(np.unique(model_predictions)) > 1:  # Only if we have multiple predictions
+        print(f"\nPrediction-Cluster Correspondence:")
+        for cluster_id in range(n_clusters):
+            cluster_mask = sample_cluster_labels == cluster_id
+            if np.any(cluster_mask):
+                cluster_predictions = model_predictions[cluster_mask]
+                unique_predictions, counts = np.unique(cluster_predictions, return_counts=True)
+                dominant_prediction = unique_predictions[np.argmax(counts)]
+                dominant_percentage = 100 * np.max(counts) / len(cluster_predictions)
+                print(f"  Cluster {cluster_id}: Dominant prediction {dominant_prediction} ({dominant_percentage:.1f}%)")
+    
+    # Calculate overall prediction accuracy
+    if len(np.unique(true_labels)) > 1 and len(np.unique(model_predictions)) > 1:
+        accuracy = 100 * np.mean(true_labels == model_predictions)
+        print(f"\nOverall Model Accuracy on Sample: {accuracy:.1f}%")
+
+def load_true_labels_for_samples(sample_indices, epoch, data_dir="results/gradients"):
+    """
+    Load true labels for specific sample indices.
+    
+    Args:
+        sample_indices: Array of sample indices
+        epoch: Epoch number
+        data_dir: Directory containing data
+    
+    Returns:
+        Array of true labels or None if not found
+    """
+    try:
+        # Try to load from saved labels file
+        labels_path = os.path.join(data_dir, f"true_labels_epoch_{epoch}.pt")
+        if os.path.exists(labels_path):
+            all_labels = torch.load(labels_path)
+            if len(all_labels) > max(sample_indices):
+                return all_labels[sample_indices].numpy()
+            else:
+                print(f"Warning: Labels file has {len(all_labels)} labels but max index is {max(sample_indices)}")
+                return None
+        else:
+            print(f"Labels file not found: {labels_path}")
+            return None
+            
+    except Exception as e:
+        print(f"Error loading true labels: {e}")
+        return None
+
+def load_model_predictions_for_samples(sample_indices, epoch, data_dir="results/gradients"):
+    """
+    Load model predictions for specific sample indices.
+    
+    Args:
+        sample_indices: Array of sample indices
+        epoch: Epoch number
+        data_dir: Directory containing data
+    
+    Returns:
+        Array of model predictions or None if not found
+    """
+    try:
+        # Try to load from saved predictions file
+        predictions_path = os.path.join(data_dir, f"model_predictions_epoch_{epoch}.pt")
+        if os.path.exists(predictions_path):
+            all_predictions = torch.load(predictions_path)
+            max_index = max(sample_indices)
+            
+            if len(all_predictions) > max_index:
+                return all_predictions[sample_indices].numpy()
+            else:
+                print(f"Warning: Predictions file has {len(all_predictions)} predictions but max index needed is {max_index}")
+                print(f"Missing {max_index + 1 - len(all_predictions)} predictions")
+                return None
+        else:
+            print(f"Predictions file not found: {predictions_path}")
+            return None
+            
+    except Exception as e:
+        print(f"Error loading model predictions: {e}")
+        return None 
