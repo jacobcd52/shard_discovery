@@ -193,10 +193,11 @@ def visualize_cluster_centers(clustering_results, param_name, epoch, data_dir="r
             if center_viz.shape == (784,):
                 center_viz = center_viz.reshape(28, 28)
             
-            im = axes[i].imshow(center_viz, cmap='RdBu_r', aspect='auto')
-            axes[i].set_title(f'Cluster {i} Center')
-            axes[i].axis('off')
-            plt.colorbar(im, ax=axes[i])
+            ax = axes[i] if isinstance(axes, list) else axes
+            im = ax.imshow(center_viz, cmap='RdBu_r', aspect='auto')
+            ax.set_title(f'Cluster {i} Center')
+            ax.axis('off')
+            plt.colorbar(im, ax=ax)
     
     elif len(original_shape) == 2:  # 1D parameter (e.g., fc weight)
         # Check if this is the first layer (input dimension 784 = 28*28)
@@ -211,10 +212,11 @@ def visualize_cluster_centers(clustering_results, param_name, epoch, data_dir="r
                 # Reshape from (784,) to (28, 28)
                 center_viz = center.reshape(28, 28)
                 
-                im = axes[i].imshow(center_viz, cmap='RdBu_r', aspect='auto')
-                axes[i].set_title(f'Cluster {i} Center')
-                axes[i].axis('off')
-                plt.colorbar(im, ax=axes[i])
+                ax = axes[i] if isinstance(axes, list) else axes
+                im = ax.imshow(center_viz, cmap='RdBu_r', aspect='auto')
+                ax.set_title(f'Cluster {i} Center')
+                ax.axis('off')
+                plt.colorbar(im, ax=ax)
         else:
             # Regular 1D parameter visualization
             fig, axes = plt.subplots(n_clusters, 1, figsize=(10, n_clusters * 3))
@@ -223,9 +225,10 @@ def visualize_cluster_centers(clustering_results, param_name, epoch, data_dir="r
             
             for i in range(n_clusters):
                 center = centers_reshaped[i]
-                axes[i].plot(center.flatten())
-                axes[i].set_title(f'Cluster {i} Center')
-                axes[i].grid(True, alpha=0.3)
+                ax = axes[i] if isinstance(axes, list) else axes
+                ax.plot(center.flatten())
+                ax.set_title(f'Cluster {i} Center')
+                ax.grid(True, alpha=0.3)
     
     plt.suptitle(f'Cluster Centers - {param_name} (Epoch {epoch})', fontsize=16)
     plt.tight_layout()
@@ -376,7 +379,7 @@ def print_cluster_info(cluster_labels, param_name, n_clusters=10, samples_per_cl
         print(f"  Sample indices: {selected_indices.tolist()}")
 
 def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
-                           n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6)):
+                           n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6), config=None):
     """
     Create t-SNE visualization of gradients with three different colorings:
     1. Points colored by true labels
@@ -431,10 +434,26 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     # Load true labels for the sampled indices
     print("Loading true labels...")
     true_labels = load_true_labels_for_samples(sample_indices, epoch, data_dir)
+    original_labels = load_original_labels_for_samples(sample_indices, epoch, data_dir)
     
     if true_labels is None:
         print("Warning: Could not load true labels, creating visualization with cluster labels only")
         true_labels = sample_cluster_labels  # Use cluster labels as fallback
+    
+    # Use original labels for visualization if available (better for filtered datasets)
+    if original_labels is not None:
+        visualization_labels = original_labels
+        label_name = "Original Digit"
+        # For original labels, show only the digits that were actually used
+        unique_original = np.unique(original_labels)
+        max_label_value = max(unique_original)
+        colorbar_ticks = sorted(unique_original)
+    else:
+        visualization_labels = true_labels
+        label_name = "True Label"
+        unique_true = np.unique(true_labels)
+        max_label_value = max(unique_true) if len(unique_true) > 1 else 9
+        colorbar_ticks = sorted(unique_true)
     
     # Load model predictions for the sampled indices
     print("Loading model predictions...")
@@ -459,18 +478,19 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     tsne_result = tsne.fit_transform(reduced_gradients)
     
     # Create visualization with three subplots
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+    fig, axes = plt.subplots(1, 3, figsize=figsize)
+    ax1, ax2, ax3 = axes
     
-    # Plot 1: Colored by true labels
+    # Plot 1: Colored by true/original labels
     scatter1 = ax1.scatter(tsne_result[:, 0], tsne_result[:, 1], 
-                          c=true_labels, cmap='tab10', alpha=0.7, s=20)
-    ax1.set_title(f't-SNE: True Labels\n{param_name} (Epoch {epoch})', fontsize=11)
+                          c=visualization_labels, cmap='tab10', alpha=0.7, s=20)
+    ax1.set_title(f't-SNE: {label_name}\n{param_name} (Epoch {epoch})', fontsize=11)
     ax1.set_xlabel('t-SNE 1')
     ax1.set_ylabel('t-SNE 2')
     
     # Add colorbar for true labels
-    cbar1 = plt.colorbar(scatter1, ax=ax1, ticks=range(10))
-    cbar1.set_label('True Label')
+    cbar1 = plt.colorbar(scatter1, ax=ax1, ticks=colorbar_ticks)
+    cbar1.set_label(label_name)
     
     # Plot 2: Colored by cluster assignments
     scatter2 = ax2.scatter(tsne_result[:, 0], tsne_result[:, 1], 
@@ -491,7 +511,12 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     ax3.set_ylabel('t-SNE 2')
     
     # Add colorbar for model predictions
-    cbar3 = plt.colorbar(scatter3, ax=ax3, ticks=range(10))
+    if len(np.unique(model_predictions)) > 1:
+        unique_preds = np.unique(model_predictions)
+        pred_ticks = sorted(unique_preds)
+    else:
+        pred_ticks = colorbar_ticks  # Fall back to same as true labels
+    cbar3 = plt.colorbar(scatter3, ax=ax3, ticks=pred_ticks)
     cbar3.set_label('Predicted Label')
     
     plt.tight_layout()
@@ -601,4 +626,35 @@ def load_model_predictions_for_samples(sample_indices, epoch, data_dir="results/
             
     except Exception as e:
         print(f"Error loading model predictions: {e}")
+        return None
+
+def load_original_labels_for_samples(sample_indices, epoch, data_dir="results/gradients"):
+    """
+    Load original MNIST digit labels for specific sample indices.
+    This is useful for filtered datasets where we want to show the original digits in visualization.
+    
+    Args:
+        sample_indices: Array of sample indices
+        epoch: Epoch number
+        data_dir: Directory containing data
+    
+    Returns:
+        Array of original labels or None if not found
+    """
+    try:
+        # Try to load from saved original labels file
+        labels_path = os.path.join(data_dir, f"original_labels_epoch_{epoch}.pt")
+        if os.path.exists(labels_path):
+            all_labels = torch.load(labels_path)
+            if len(all_labels) > max(sample_indices):
+                return all_labels[sample_indices].numpy()
+            else:
+                print(f"Warning: Original labels file has {len(all_labels)} labels but max index is {max(sample_indices)}")
+                return None
+        else:
+            # If no original labels file, return None (will fall back to filtered labels)
+            return None
+            
+    except Exception as e:
+        print(f"Error loading original labels: {e}")
         return None 

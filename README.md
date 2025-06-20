@@ -1,6 +1,6 @@
 # MNIST MLP Training Project
 
-This project implements a Multi-Layer Perceptron (MLP) for MNIST digit classification with comprehensive configuration management, training visualization, data exploration capabilities, and **per-sample gradient collection**.
+This project implements a Multi-Layer Perceptron (MLP) for MNIST digit classification with comprehensive configuration management, training visualization, data exploration capabilities, **per-sample gradient collection**, and **digit filtering** for studying clustering patterns on subsets of MNIST digits.
 
 ## Project Structure
 
@@ -35,6 +35,9 @@ This project implements a Multi-Layer Perceptron (MLP) for MNIST digit classific
 - **Model Checkpointing**: Saves best model based on validation accuracy
 - **Comprehensive Logging**: Detailed training progress and metrics
 - **Per-Sample Gradient Collection**: Save gradients for each individual training sample
+- **🆕 Digit Filtering**: Train on subsets of MNIST digits to study clustering patterns
+- **🆕 t-SNE Visualization**: Advanced gradient clustering visualization with t-SNE
+- **🆕 GPU-Accelerated K-means**: Fast clustering analysis of gradient data
 
 ## Installation
 
@@ -195,9 +198,123 @@ num_samples_to_visualize = 25  # More samples in visualizations
 plot_dpi = 600                 # Higher resolution plots
 ```
 
+## 🆕 Digit Filtering
+
+The project now supports training on subsets of MNIST digits to study how gradient clustering patterns change when certain digits are removed.
+
+### Quick Start with Digit Filtering
+
+1. **Run the demo script** to see available filtering options:
+```bash
+python demo_digit_filtering.py
+```
+
+2. **Choose a filtering configuration** (e.g., binary classification with digits 0 and 1):
+```python
+# In config.py
+filter_digits = [0, 1]  # Only use digits 0 and 1
+```
+
+3. **Generate filtered labels**:
+```bash
+python generate_true_labels.py
+```
+
+4. **Train the model**:
+```bash
+python train.py
+```
+
+5. **Analyze results** in `inspect_gradients.ipynb` - the t-SNE visualization will automatically handle filtered datasets!
+
+### Configuration Examples
+
+#### Binary Classification (Digits 0 and 1)
+```python
+class Config:
+    filter_digits = [0, 1]  # Binary classification
+    # Model output will be automatically adjusted to 2 classes
+```
+
+#### Even Digits Only
+```python
+class Config:
+    filter_digits = [0, 2, 4, 6, 8]  # Even digits
+    # Creates 5-class problem: 0→0, 2→1, 4→2, 6→3, 8→4
+```
+
+#### Prime Digits
+```python
+class Config:
+    filter_digits = [2, 3, 5, 7]  # Prime digits
+    # Creates 4-class problem: 2→0, 3→1, 5→2, 7→3
+```
+
+#### Similar Digits (Challenging)
+```python
+class Config:
+    filter_digits = [6, 8, 9]  # Visually similar digits
+    # Tests if gradients can distinguish similar shapes
+```
+
+### How It Works
+
+1. **Automatic Dataset Filtering**: The `FilteredMNIST` class automatically filters the training and test datasets
+2. **Label Remapping**: Original digit labels are remapped to a continuous range (0, 1, 2, ...)
+3. **Model Adaptation**: The model's output layer is automatically resized based on the number of filtered digits
+4. **Visualization Support**: t-SNE and clustering visualizations show both filtered labels and original digits
+
+### Benefits for Research
+
+- **Study Digit Relationships**: See how removing certain digits affects gradient clustering
+- **Simplify Analysis**: Focus on specific digit pairs or groups
+- **Test Hypotheses**: E.g., "Do visually similar digits cluster together in gradient space?"
+- **Reduce Complexity**: Start with binary classification, then gradually add more digits
+
+## 🆕 t-SNE Visualization
+
+The project includes advanced t-SNE visualization of gradient clustering patterns.
+
+### Features
+
+- **Three-Panel Visualization**: 
+  - Original digit labels (left)
+  - K-means cluster assignments (middle) 
+  - Model predictions (right)
+- **Filtered Dataset Support**: Shows original digits even when training on filtered subsets
+- **PCA Preprocessing**: Dimensionality reduction before t-SNE for better performance
+- **Configurable Parameters**: Adjust sample size, perplexity, and random seed
+
+### Usage
+
+In `inspect_gradients.ipynb`, run Cell 4 after performing k-means clustering:
+
+```python
+# The t-SNE visualization will automatically:
+# 1. Load gradient data
+# 2. Apply PCA preprocessing
+# 3. Run t-SNE dimensionality reduction
+# 4. Create three-panel visualization
+# 5. Save high-resolution plots
+visualize_tsne_gradients(
+    clustering_results=clustering_results,
+    param_name="network.3.weight",
+    epoch=0,
+    n_samples=5000,
+    perplexity=30
+)
+```
+
+### Expected Results
+
+- **Clear Cluster Separation**: t-SNE typically reveals 10 distinct clusters (or fewer with digit filtering)
+- **Label-Cluster Correspondence**: Clusters often correspond to digit classes
+- **Emergent Structure**: The clustering structure emerges naturally from gradient patterns
+
 ## Memory Considerations
 
 - **Gradient Collection**: Can be memory-intensive, especially with large models
+- **Digit Filtering**: Reduces memory usage by training on smaller datasets
 - **Batch Processing**: Consider reducing batch size if running out of memory
 - **Gradient Storage**: Gradients are automatically moved to CPU to save GPU memory
 - **Cleanup**: Gradients are cleared after each epoch to free memory
