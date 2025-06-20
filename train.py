@@ -54,15 +54,41 @@ def get_data_loaders(config):
     
     return train_loader, test_loader, train_dataset, test_dataset
 
-def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None):
+def train_epoch(model, train_loader, criterion, optimizer, device, gradient_collector=None, config=None, saved_images=None, saved_image_indices=None, epoch=0):
     """Train for one epoch"""
     model.train()
     running_loss = 0.0
     correct = 0
     total = 0
     
+    # Initialize image saving for first epoch
+    if epoch == 0:
+        saved_images = saved_images or []
+        saved_image_indices = saved_image_indices or []
+        print("Initializing MNIST image collection for visualization...")
+    
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
+        
+        # Save MNIST images for visualization (only for first epoch to save space)
+        if epoch == 0 and config is not None:
+            # Get the current batch images and their global indices
+            batch_images = data.cpu()  # Move to CPU for saving
+            current_count = len(saved_images)
+            batch_indices = list(range(current_count, current_count + len(batch_images)))
+            
+            # Extend the saved images lists
+            saved_images.extend(batch_images)
+            saved_image_indices.extend(batch_indices)
+            
+            # Save at the end of epoch
+            if batch_idx == len(train_loader) - 1:
+                print(f"Saving {len(saved_images)} MNIST images for visualization...")
+                os.makedirs(config.gradients_dir, exist_ok=True)
+                torch.save(torch.stack(saved_images), os.path.join(config.gradients_dir, f"mnist_images_epoch_{epoch}.pt"))
+                torch.save(torch.tensor(saved_image_indices), os.path.join(config.gradients_dir, f"mnist_image_indices_epoch_{epoch}.pt"))
+                print("MNIST images saved successfully!")
+                print(f"Images saved to: {config.gradients_dir}/mnist_images_epoch_{epoch}.pt")
         
         # Collect per-sample gradients if enabled
         if gradient_collector is not None and config is not None and config.collect_gradients:
@@ -70,7 +96,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
             
             # Save gradients every batch if configured (memory intensive)
             if config.save_gradients_every_batch:
-                gradient_collector.save_gradients(epoch=0, batch_idx=batch_idx)
+                gradient_collector.save_gradients(epoch=epoch, batch_idx=batch_idx)
                 gradient_collector.clear_gradients()
         
         # Normal training step
@@ -91,7 +117,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
     epoch_loss = running_loss / len(train_loader)
     epoch_accuracy = 100. * correct / total
     
-    return epoch_loss, epoch_accuracy
+    return epoch_loss, epoch_accuracy, saved_images, saved_image_indices
 
 def test_epoch(model, test_loader, criterion, device):
     """Test for one epoch"""
@@ -177,15 +203,17 @@ def main():
     test_accuracies = []
     
     best_test_accuracy = 0.0
+    saved_images = None
+    saved_image_indices = None
     
-    for epoch in range(1, config.num_epochs + 1):
+    for epoch in range(config.num_epochs):
         print(f"\nEpoch {epoch}/{config.num_epochs}")
         print("-" * 20)
         
         # Train
-        train_loss, train_accuracy = train_epoch(
+        train_loss, train_accuracy, saved_images, saved_image_indices = train_epoch(
             model, train_loader, criterion, optimizer, config.device, 
-            gradient_collector, config
+            gradient_collector, config, saved_images, saved_image_indices, epoch
         )
         
         # Save gradients after epoch if enabled
