@@ -467,7 +467,7 @@ def print_cluster_info(cluster_labels, param_name, n_clusters=10, samples_per_cl
 
 def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
                            n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6), config=None,
-                           start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0):
+                           start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0, results_dir="results"):
     """
     Create t-SNE visualization of gradients with three different colorings:
     1. Points colored by true labels
@@ -487,6 +487,7 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
         start_fraction: Fraction of training samples to start from (0.0 to 1.0)
         end_fraction: Fraction of training samples to end at (0.0 to 1.0)
         min_grad_percentile: Minimum gradient norm percentile to include (0.0 to 100.0)
+        results_dir: Directory to save the t-SNE visualization plots
     """
     
     print(f"Creating t-SNE visualization for {param_name} (epoch {epoch})")
@@ -586,8 +587,7 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     original_labels = load_original_labels_for_samples(sample_original_indices, epoch, data_dir)
     
     if true_labels is None:
-        print("Warning: Could not load true labels, creating visualization with cluster labels only")
-        true_labels = sample_cluster_labels  # Use cluster labels as fallback
+        raise RuntimeError(f"Could not load true labels for epoch {epoch}. Make sure the labels file exists at {data_dir}/true_labels_epoch_{epoch}.pt")
     
     # Use original labels for visualization if available (better for filtered datasets)
     if original_labels is not None:
@@ -609,8 +609,7 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     model_predictions = load_model_predictions_for_samples(sample_original_indices, epoch, data_dir)
     
     if model_predictions is None:
-        print("Warning: Could not load model predictions, creating visualization with cluster labels only")
-        model_predictions = sample_cluster_labels  # Use cluster labels as fallback
+        raise RuntimeError(f"Could not load model predictions for epoch {epoch}. Make sure the predictions file exists at {data_dir}/model_predictions_epoch_{epoch}.pt")
     
     # Apply PCA for dimensionality reduction before t-SNE (for better performance)
     print("Applying PCA for dimensionality reduction...")
@@ -671,7 +670,7 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     plt.tight_layout()
     
     # Save the plot
-    save_path = os.path.join("results", f"tsne_visualization_{param_name.replace('.', '_')}_epoch_{epoch}.png")
+    save_path = os.path.join(results_dir, f"tsne_visualization_{param_name.replace('.', '_')}_epoch_{epoch}.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"Saved t-SNE visualization to: {save_path}")
     

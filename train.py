@@ -67,6 +67,8 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
     if epoch == 0:
         saved_images = saved_images or []
         saved_image_indices = saved_image_indices or []
+        saved_true_labels = []
+        saved_model_predictions = []
         print("Initializing MNIST image collection for visualization...")
     
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -114,10 +116,26 @@ def train_epoch(model, train_loader, criterion, optimizer, device, gradient_coll
             scaler.update()
         else:
             # Direct bfloat16 training without autocast
-        output = model(data)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+        
+        # Collect true labels and model predictions for first epoch
+        if epoch == 0 and config is not None:
+            _, predicted = torch.max(output.data, 1)
+            saved_true_labels.extend(target.cpu().tolist())
+            saved_model_predictions.extend(predicted.cpu().tolist())
+            
+            # Save at the end of epoch
+            if batch_idx == len(train_loader) - 1:
+                print(f"Saving {len(saved_true_labels)} true labels and model predictions...")
+                os.makedirs(config.gradients_dir, exist_ok=True)
+                torch.save(torch.tensor(saved_true_labels), os.path.join(config.gradients_dir, f"true_labels_epoch_{epoch}.pt"))
+                torch.save(torch.tensor(saved_model_predictions), os.path.join(config.gradients_dir, f"model_predictions_epoch_{epoch}.pt"))
+                print("True labels and model predictions saved successfully!")
+                print(f"Labels saved to: {config.gradients_dir}/true_labels_epoch_{epoch}.pt")
+                print(f"Predictions saved to: {config.gradients_dir}/model_predictions_epoch_{epoch}.pt")
         
         running_loss += loss.item()
         _, predicted = torch.max(output.data, 1)
@@ -148,8 +166,8 @@ def test_epoch(model, test_loader, criterion, device, config):
                     output = model(data)
                     loss = criterion(output, target)
             else:
-            output = model(data)
-            loss = criterion(output, target)
+                output = model(data)
+                loss = criterion(output, target)
             
             running_loss += loss.item()
             _, predicted = torch.max(output.data, 1)
