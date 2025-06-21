@@ -467,7 +467,8 @@ def print_cluster_info(cluster_labels, param_name, n_clusters=10, samples_per_cl
 
 def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
                            n_samples=5000, perplexity=30, random_state=42, figsize=(20, 6), config=None,
-                           start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0, results_dir="results"):
+                           start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0, results_dir="results",
+                           normalize_gradients=True):
     """
     Create t-SNE visualization of gradients with three different colorings:
     1. Points colored by true labels
@@ -488,6 +489,7 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
         end_fraction: Fraction of training samples to end at (0.0 to 1.0)
         min_grad_percentile: Minimum gradient norm percentile to include (0.0 to 100.0)
         results_dir: Directory to save the t-SNE visualization plots
+        normalize_gradients: Whether to normalize gradients to unit L2 norm (default: True)
     """
     
     print(f"Creating t-SNE visualization for {param_name} (epoch {epoch})")
@@ -580,6 +582,17 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
         n_samples = filtered_size
     
     print(f"Using {len(sample_gradients)} samples for t-SNE")
+    
+    # Optionally normalize gradients to unit L2 norm
+    if normalize_gradients:
+        print("Normalizing gradients to unit L2 norm...")
+        gradient_norms = np.linalg.norm(sample_gradients, axis=1, keepdims=True)
+        # Avoid division by zero for zero gradients
+        gradient_norms = np.where(gradient_norms == 0, 1, gradient_norms)
+        sample_gradients = sample_gradients / gradient_norms
+        print(f"Gradients normalized to unit L2 norm (shape: {sample_gradients.shape})")
+    else:
+        print("Using original gradient magnitudes (no normalization)")
     
     # Load true labels for the sampled indices
     print("Loading true labels...")
@@ -683,6 +696,549 @@ def visualize_tsne_gradients(clustering_results, param_name, epoch, data_dir="re
     print(f"  Samples used: {len(sample_gradients)}")
     print(f"  Number of clusters: {n_clusters}")
     print(f"  t-SNE perplexity: {perplexity}")
+    
+    # Calculate label-cluster correspondence
+    if len(np.unique(true_labels)) > 1:  # Only if we have multiple true labels
+        print(f"\nLabel-Cluster Correspondence:")
+        for cluster_id in range(n_clusters):
+            cluster_mask = sample_cluster_labels == cluster_id
+            if np.any(cluster_mask):
+                cluster_true_labels = true_labels[cluster_mask]
+                unique_labels, counts = np.unique(cluster_true_labels, return_counts=True)
+                dominant_label = unique_labels[np.argmax(counts)]
+                dominant_percentage = 100 * np.max(counts) / len(cluster_true_labels)
+                print(f"  Cluster {cluster_id}: Dominant true label {dominant_label} ({dominant_percentage:.1f}%)")
+    
+    # Calculate prediction-cluster correspondence
+    if len(np.unique(model_predictions)) > 1:  # Only if we have multiple predictions
+        print(f"\nPrediction-Cluster Correspondence:")
+        for cluster_id in range(n_clusters):
+            cluster_mask = sample_cluster_labels == cluster_id
+            if np.any(cluster_mask):
+                cluster_predictions = model_predictions[cluster_mask]
+                unique_predictions, counts = np.unique(cluster_predictions, return_counts=True)
+                dominant_prediction = unique_predictions[np.argmax(counts)]
+                dominant_percentage = 100 * np.max(counts) / len(cluster_predictions)
+                print(f"  Cluster {cluster_id}: Dominant prediction {dominant_prediction} ({dominant_percentage:.1f}%)")
+    
+    # Calculate overall prediction accuracy
+    if len(np.unique(true_labels)) > 1 and len(np.unique(model_predictions)) > 1:
+        accuracy = 100 * np.mean(true_labels == model_predictions)
+        print(f"\nOverall Model Accuracy on Sample: {accuracy:.1f}%")
+
+def visualize_umap_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
+                           n_samples=5000, n_neighbors=15, min_dist=0.1, random_state=42, figsize=(20, 6), config=None,
+                           start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0, results_dir="results",
+                           normalize_gradients=True):
+    """
+    Create UMAP visualization of gradients with three different colorings:
+    1. Points colored by true labels
+    2. Points colored by cluster assignments
+    3. Points colored by model predictions
+    
+    Args:
+        clustering_results: Results from k-means clustering
+        param_name: Name of the parameter
+        epoch: Epoch number
+        data_dir: Directory containing gradient data
+        n_samples: Number of samples to use for UMAP (for performance)
+        n_neighbors: UMAP n_neighbors parameter (default: 15)
+        min_dist: UMAP min_dist parameter (default: 0.1)
+        random_state: Random seed for reproducibility
+        figsize: Figure size for the plot
+        config: Configuration object for filtering info
+        start_fraction: Fraction of training samples to start from (0.0 to 1.0)
+        end_fraction: Fraction of training samples to end at (0.0 to 1.0)
+        min_grad_percentile: Minimum gradient norm percentile to include (0.0 to 100.0)
+        results_dir: Directory to save the UMAP visualization plots
+        normalize_gradients: Whether to normalize gradients to unit L2 norm (default: True)
+    """
+    
+    # Try to import UMAP
+    try:
+        import umap
+    except ImportError:
+        print("UMAP not installed. Please install it with: pip install umap-learn")
+        return
+    
+    print(f"Creating UMAP visualization for {param_name} (epoch {epoch})")
+    print(f"Filtering: start_fraction={start_fraction:.1%}, end_fraction={end_fraction:.1%}, min_grad_percentile={min_grad_percentile:.1f}%")
+    
+    # Get cluster assignments
+    cluster_labels = clustering_results['cluster_labels']
+    n_clusters = clustering_results['n_clusters']
+    
+    # Load gradients for the parameter
+    stacked_gradients = load_stacked_gradients(data_dir, epoch)
+    if param_name not in stacked_gradients:
+        print(f"Parameter {param_name} not found in epoch {epoch}")
+        return
+    
+    gradients_tensor = stacked_gradients[param_name]
+    print(f"Loaded gradients tensor: {gradients_tensor.shape}")
+    
+    # Apply training position filtering (similar to k-means)
+    num_total_samples = gradients_tensor.shape[0]
+    start_idx = int(start_fraction * num_total_samples)
+    end_idx = int(end_fraction * num_total_samples)
+    subset_size = end_idx - start_idx
+    
+    print(f"Training position filtering: using samples {start_idx} to {end_idx-1} ({subset_size}/{num_total_samples} samples)")
+    
+    # Extract subset
+    subset_gradients = gradients_tensor[start_idx:end_idx]
+    subset_cluster_labels = cluster_labels[start_idx:end_idx]
+    
+    # Flatten gradients for norm calculation and UMAP
+    original_shape = subset_gradients.shape
+    flattened_subset = subset_gradients.view(subset_size, -1)
+    
+    # Apply gradient norm filtering
+    if min_grad_percentile > 0.0:
+        gradient_norms = torch.norm(flattened_subset, dim=1)
+        percentile_threshold = torch.quantile(gradient_norms, min_grad_percentile / 100.0)
+        print(f"Gradient norm percentile threshold: {percentile_threshold:.4f}")
+        
+        # Filter gradients by norm
+        norm_mask = gradient_norms >= percentile_threshold
+        filtered_indices = torch.nonzero(norm_mask).squeeze(-1)
+        filtered_size = len(filtered_indices)
+        
+        print(f"Gradient norm filtering: {filtered_size}/{subset_size} samples with norm >= {percentile_threshold:.4f}")
+        
+        if filtered_size == 0:
+            print("Error: No samples remain after filtering!")
+            return
+        
+        # Extract filtered gradients and labels
+        filtered_gradients = flattened_subset[filtered_indices]
+        filtered_cluster_labels = subset_cluster_labels[filtered_indices]
+        
+        # Create mapping to original indices (for loading labels)
+        # filtered_indices are relative to subset, map to original dataset indices
+        original_sample_indices = start_idx + filtered_indices.cpu().numpy()
+        
+    else:
+        # No gradient norm filtering
+        filtered_gradients = flattened_subset
+        filtered_cluster_labels = subset_cluster_labels
+        filtered_size = subset_size
+        original_sample_indices = np.arange(start_idx, end_idx)
+        print(f"No gradient norm filtering applied")
+    
+    # Final sampling for UMAP performance
+    if n_samples < filtered_size:
+        print(f"Final sampling for UMAP: {n_samples}/{filtered_size} samples")
+        np.random.seed(random_state)
+        final_sample_indices = np.random.choice(filtered_size, n_samples, replace=False)
+        
+        sample_gradients = filtered_gradients[final_sample_indices].cpu().numpy()
+        # Handle both tensor and numpy array cases for cluster labels
+        if isinstance(filtered_cluster_labels, torch.Tensor):
+            sample_cluster_labels = filtered_cluster_labels[torch.from_numpy(final_sample_indices)].cpu().numpy()
+        else:
+            sample_cluster_labels = filtered_cluster_labels[final_sample_indices]
+        # Map to original dataset indices
+        sample_original_indices = original_sample_indices[final_sample_indices]
+    else:
+        sample_gradients = filtered_gradients.cpu().numpy()
+        # Handle both tensor and numpy array cases for cluster labels
+        if isinstance(filtered_cluster_labels, torch.Tensor):
+            sample_cluster_labels = filtered_cluster_labels.cpu().numpy()
+        else:
+            sample_cluster_labels = filtered_cluster_labels
+        sample_original_indices = original_sample_indices
+        n_samples = filtered_size
+    
+    print(f"Using {len(sample_gradients)} samples for UMAP")
+    
+    # Optionally normalize gradients to unit L2 norm
+    if normalize_gradients:
+        print("Normalizing gradients to unit L2 norm...")
+        gradient_norms = np.linalg.norm(sample_gradients, axis=1, keepdims=True)
+        # Avoid division by zero for zero gradients
+        gradient_norms = np.where(gradient_norms == 0, 1, gradient_norms)
+        sample_gradients = sample_gradients / gradient_norms
+        print(f"Gradients normalized to unit L2 norm (shape: {sample_gradients.shape})")
+    else:
+        print("Using original gradient magnitudes (no normalization)")
+    
+    # Load true labels for the sampled indices
+    print("Loading true labels...")
+    true_labels = load_true_labels_for_samples(sample_original_indices, epoch, data_dir)
+    original_labels = load_original_labels_for_samples(sample_original_indices, epoch, data_dir)
+    
+    if true_labels is None:
+        raise RuntimeError(f"Could not load true labels for epoch {epoch}. Make sure the labels file exists at {data_dir}/true_labels_epoch_{epoch}.pt")
+    
+    # Use original labels for visualization if available (better for filtered datasets)
+    if original_labels is not None:
+        visualization_labels = original_labels
+        label_name = "Original Digit"
+        # For original labels, show only the digits that were actually used
+        unique_original = np.unique(original_labels)
+        max_label_value = max(unique_original)
+        colorbar_ticks = sorted(unique_original)
+    else:
+        visualization_labels = true_labels
+        label_name = "True Label"
+        unique_true = np.unique(true_labels)
+        max_label_value = max(unique_true) if len(unique_true) > 1 else 9
+        colorbar_ticks = sorted(unique_true)
+    
+    # Load model predictions for the sampled indices
+    print("Loading model predictions...")
+    model_predictions = load_model_predictions_for_samples(sample_original_indices, epoch, data_dir)
+    
+    if model_predictions is None:
+        raise RuntimeError(f"Could not load model predictions for epoch {epoch}. Make sure the predictions file exists at {data_dir}/model_predictions_epoch_{epoch}.pt")
+    
+    # Apply PCA for dimensionality reduction before UMAP (for better performance)
+    print("Applying PCA for dimensionality reduction...")
+    if sample_gradients.shape[1] > 50:
+        pca = PCA(n_components=50, random_state=random_state)
+        reduced_gradients = pca.fit_transform(sample_gradients)
+        print(f"Reduced from {sample_gradients.shape[1]} to {reduced_gradients.shape[1]} dimensions")
+    else:
+        reduced_gradients = sample_gradients
+    
+    # Apply UMAP
+    print("Applying UMAP...")
+    umap_reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_dist, n_components=2, random_state=random_state)
+    umap_result = umap_reducer.fit_transform(reduced_gradients)
+    
+    # Create visualization with three subplots
+    fig, axes = plt.subplots(1, 3, figsize=figsize)
+    ax1, ax2, ax3 = axes
+    
+    # Plot 1: Colored by true/original labels
+    scatter1 = ax1.scatter(umap_result[:, 0], umap_result[:, 1], 
+                          c=visualization_labels, cmap='tab10', alpha=0.7, s=20)
+    ax1.set_title(f'UMAP: {label_name}\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax1.set_xlabel('UMAP 1')
+    ax1.set_ylabel('UMAP 2')
+    
+    # Add colorbar for true labels
+    cbar1 = plt.colorbar(scatter1, ax=ax1, ticks=colorbar_ticks)
+    cbar1.set_label(label_name)
+    
+    # Plot 2: Colored by cluster assignments
+    scatter2 = ax2.scatter(umap_result[:, 0], umap_result[:, 1], 
+                          c=sample_cluster_labels, cmap='tab10', alpha=0.7, s=20)
+    ax2.set_title(f'UMAP: Cluster Assignment\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax2.set_xlabel('UMAP 1')
+    ax2.set_ylabel('UMAP 2')
+    
+    # Add colorbar for cluster labels
+    cbar2 = plt.colorbar(scatter2, ax=ax2, ticks=range(n_clusters))
+    cbar2.set_label('Cluster ID')
+    
+    # Plot 3: Colored by model predictions
+    scatter3 = ax3.scatter(umap_result[:, 0], umap_result[:, 1], 
+                          c=model_predictions, cmap='tab10', alpha=0.7, s=20)
+    ax3.set_title(f'UMAP: Model Predictions\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax3.set_xlabel('UMAP 1')
+    ax3.set_ylabel('UMAP 2')
+    
+    # Add colorbar for model predictions
+    if len(np.unique(model_predictions)) > 1:
+        unique_preds = np.unique(model_predictions)
+        pred_ticks = sorted(unique_preds)
+    else:
+        pred_ticks = colorbar_ticks  # Fall back to same as true labels
+    cbar3 = plt.colorbar(scatter3, ax=ax3, ticks=pred_ticks)
+    cbar3.set_label('Predicted Label')
+    
+    plt.tight_layout()
+    
+    # Save the plot
+    save_path = os.path.join(results_dir, f"umap_visualization_{param_name.replace('.', '_')}_epoch_{epoch}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"Saved UMAP visualization to: {save_path}")
+    
+    plt.show()
+    
+    # Print some statistics
+    print(f"\nUMAP Visualization Statistics:")
+    print(f"  Parameter: {param_name}")
+    print(f"  Epoch: {epoch}")
+    print(f"  Samples used: {len(sample_gradients)}")
+    print(f"  Number of clusters: {n_clusters}")
+    print(f"  UMAP n_neighbors: {n_neighbors}")
+    print(f"  UMAP min_dist: {min_dist}")
+    
+    # Calculate label-cluster correspondence
+    if len(np.unique(true_labels)) > 1:  # Only if we have multiple true labels
+        print(f"\nLabel-Cluster Correspondence:")
+        for cluster_id in range(n_clusters):
+            cluster_mask = sample_cluster_labels == cluster_id
+            if np.any(cluster_mask):
+                cluster_true_labels = true_labels[cluster_mask]
+                unique_labels, counts = np.unique(cluster_true_labels, return_counts=True)
+                dominant_label = unique_labels[np.argmax(counts)]
+                dominant_percentage = 100 * np.max(counts) / len(cluster_true_labels)
+                print(f"  Cluster {cluster_id}: Dominant true label {dominant_label} ({dominant_percentage:.1f}%)")
+    
+    # Calculate prediction-cluster correspondence
+    if len(np.unique(model_predictions)) > 1:  # Only if we have multiple predictions
+        print(f"\nPrediction-Cluster Correspondence:")
+        for cluster_id in range(n_clusters):
+            cluster_mask = sample_cluster_labels == cluster_id
+            if np.any(cluster_mask):
+                cluster_predictions = model_predictions[cluster_mask]
+                unique_predictions, counts = np.unique(cluster_predictions, return_counts=True)
+                dominant_prediction = unique_predictions[np.argmax(counts)]
+                dominant_percentage = 100 * np.max(counts) / len(cluster_predictions)
+                print(f"  Cluster {cluster_id}: Dominant prediction {dominant_prediction} ({dominant_percentage:.1f}%)")
+    
+        # Calculate overall prediction accuracy
+    if len(np.unique(true_labels)) > 1 and len(np.unique(model_predictions)) > 1:
+        accuracy = 100 * np.mean(true_labels == model_predictions)
+        print(f"\nOverall Model Accuracy on Sample: {accuracy:.1f}%")
+
+def visualize_pacmap_gradients(clustering_results, param_name, epoch, data_dir="results/gradients", 
+                             n_samples=5000, n_neighbors=10, MN_ratio=0.5, FP_ratio=2.0, random_state=42, figsize=(20, 6), config=None,
+                             start_fraction=0.0, end_fraction=1.0, min_grad_percentile=0.0, results_dir="results",
+                             normalize_gradients=True):
+    """
+    Create PaCMAP visualization of gradients with three different colorings:
+    1. Points colored by true labels
+    2. Points colored by cluster assignments
+    3. Points colored by model predictions
+    
+    Args:
+        clustering_results: Results from k-means clustering
+        param_name: Name of the parameter
+        epoch: Epoch number
+        data_dir: Directory containing gradient data
+        n_samples: Number of samples to use for PaCMAP (for performance)
+        n_neighbors: PaCMAP n_neighbors parameter (default: 10)
+        MN_ratio: PaCMAP MN_ratio parameter - ratio of mid-near pairs (default: 0.5)
+        FP_ratio: PaCMAP FP_ratio parameter - ratio of further pairs (default: 2.0)
+        random_state: Random seed for reproducibility
+        figsize: Figure size for the plot
+        config: Configuration object for filtering info
+        start_fraction: Fraction of training samples to start from (0.0 to 1.0)
+        end_fraction: Fraction of training samples to end at (0.0 to 1.0)
+        min_grad_percentile: Minimum gradient norm percentile to include (0.0 to 100.0)
+        results_dir: Directory to save the PaCMAP visualization plots
+        normalize_gradients: Whether to normalize gradients to unit L2 norm (default: True)
+    """
+    
+    # Try to import PaCMAP
+    try:
+        import pacmap
+    except ImportError:
+        print("PaCMAP not installed. Please install it with: pip install pacmap")
+        return
+    
+    print(f"Creating PaCMAP visualization for {param_name} (epoch {epoch})")
+    print(f"Filtering: start_fraction={start_fraction:.1%}, end_fraction={end_fraction:.1%}, min_grad_percentile={min_grad_percentile:.1f}%")
+    
+    # Get cluster assignments
+    cluster_labels = clustering_results['cluster_labels']
+    n_clusters = clustering_results['n_clusters']
+    
+    # Load gradients for the parameter
+    stacked_gradients = load_stacked_gradients(data_dir, epoch)
+    if param_name not in stacked_gradients:
+        print(f"Parameter {param_name} not found in epoch {epoch}")
+        return
+    
+    gradients_tensor = stacked_gradients[param_name]
+    print(f"Loaded gradients tensor: {gradients_tensor.shape}")
+    
+    # Apply training position filtering (similar to k-means)
+    num_total_samples = gradients_tensor.shape[0]
+    start_idx = int(start_fraction * num_total_samples)
+    end_idx = int(end_fraction * num_total_samples)
+    subset_size = end_idx - start_idx
+    
+    print(f"Training position filtering: using samples {start_idx} to {end_idx-1} ({subset_size}/{num_total_samples} samples)")
+    
+    # Extract subset
+    subset_gradients = gradients_tensor[start_idx:end_idx]
+    subset_cluster_labels = cluster_labels[start_idx:end_idx]
+    
+    # Flatten gradients for norm calculation and PaCMAP
+    original_shape = subset_gradients.shape
+    flattened_subset = subset_gradients.view(subset_size, -1)
+    
+    # Apply gradient norm filtering
+    if min_grad_percentile > 0.0:
+        gradient_norms = torch.norm(flattened_subset, dim=1)
+        percentile_threshold = torch.quantile(gradient_norms, min_grad_percentile / 100.0)
+        print(f"Gradient norm percentile threshold: {percentile_threshold:.4f}")
+        
+        # Filter gradients by norm
+        norm_mask = gradient_norms >= percentile_threshold
+        filtered_indices = torch.nonzero(norm_mask).squeeze(-1)
+        filtered_size = len(filtered_indices)
+        
+        print(f"Gradient norm filtering: {filtered_size}/{subset_size} samples with norm >= {percentile_threshold:.4f}")
+        
+        if filtered_size == 0:
+            print("Error: No samples remain after filtering!")
+            return
+        
+        # Extract filtered gradients and labels
+        filtered_gradients = flattened_subset[filtered_indices]
+        filtered_cluster_labels = subset_cluster_labels[filtered_indices]
+        
+        # Create mapping to original indices (for loading labels)
+        # filtered_indices are relative to subset, map to original dataset indices
+        original_sample_indices = start_idx + filtered_indices.cpu().numpy()
+        
+    else:
+        # No gradient norm filtering
+        filtered_gradients = flattened_subset
+        filtered_cluster_labels = subset_cluster_labels
+        filtered_size = subset_size
+        original_sample_indices = np.arange(start_idx, end_idx)
+        print(f"No gradient norm filtering applied")
+    
+    # Final sampling for PaCMAP performance
+    if n_samples < filtered_size:
+        print(f"Final sampling for PaCMAP: {n_samples}/{filtered_size} samples")
+        np.random.seed(random_state)
+        final_sample_indices = np.random.choice(filtered_size, n_samples, replace=False)
+        
+        sample_gradients = filtered_gradients[final_sample_indices].cpu().numpy()
+        # Handle both tensor and numpy array cases for cluster labels
+        if isinstance(filtered_cluster_labels, torch.Tensor):
+            sample_cluster_labels = filtered_cluster_labels[torch.from_numpy(final_sample_indices)].cpu().numpy()
+        else:
+            sample_cluster_labels = filtered_cluster_labels[final_sample_indices]
+        # Map to original dataset indices
+        sample_original_indices = original_sample_indices[final_sample_indices]
+    else:
+        sample_gradients = filtered_gradients.cpu().numpy()
+        # Handle both tensor and numpy array cases for cluster labels
+        if isinstance(filtered_cluster_labels, torch.Tensor):
+            sample_cluster_labels = filtered_cluster_labels.cpu().numpy()
+        else:
+            sample_cluster_labels = filtered_cluster_labels
+        sample_original_indices = original_sample_indices
+        n_samples = filtered_size
+    
+    print(f"Using {len(sample_gradients)} samples for PaCMAP")
+    
+    # Optionally normalize gradients to unit L2 norm
+    if normalize_gradients:
+        print("Normalizing gradients to unit L2 norm...")
+        gradient_norms = np.linalg.norm(sample_gradients, axis=1, keepdims=True)
+        # Avoid division by zero for zero gradients
+        gradient_norms = np.where(gradient_norms == 0, 1, gradient_norms)
+        sample_gradients = sample_gradients / gradient_norms
+        print(f"Gradients normalized to unit L2 norm (shape: {sample_gradients.shape})")
+    else:
+        print("Using original gradient magnitudes (no normalization)")
+    
+    # Load true labels for the sampled indices
+    print("Loading true labels...")
+    true_labels = load_true_labels_for_samples(sample_original_indices, epoch, data_dir)
+    original_labels = load_original_labels_for_samples(sample_original_indices, epoch, data_dir)
+    
+    if true_labels is None:
+        raise RuntimeError(f"Could not load true labels for epoch {epoch}. Make sure the labels file exists at {data_dir}/true_labels_epoch_{epoch}.pt")
+    
+    # Use original labels for visualization if available (better for filtered datasets)
+    if original_labels is not None:
+        visualization_labels = original_labels
+        label_name = "Original Digit"
+        # For original labels, show only the digits that were actually used
+        unique_original = np.unique(original_labels)
+        max_label_value = max(unique_original)
+        colorbar_ticks = sorted(unique_original)
+    else:
+        visualization_labels = true_labels
+        label_name = "True Label"
+        unique_true = np.unique(true_labels)
+        max_label_value = max(unique_true) if len(unique_true) > 1 else 9
+        colorbar_ticks = sorted(unique_true)
+    
+    # Load model predictions for the sampled indices
+    print("Loading model predictions...")
+    model_predictions = load_model_predictions_for_samples(sample_original_indices, epoch, data_dir)
+    
+    if model_predictions is None:
+        raise RuntimeError(f"Could not load model predictions for epoch {epoch}. Make sure the predictions file exists at {data_dir}/model_predictions_epoch_{epoch}.pt")
+    
+    # Apply PCA for dimensionality reduction before PaCMAP (for better performance)
+    print("Applying PCA for dimensionality reduction...")
+    if sample_gradients.shape[1] > 50:
+        pca = PCA(n_components=50, random_state=random_state)
+        reduced_gradients = pca.fit_transform(sample_gradients)
+        print(f"Reduced from {sample_gradients.shape[1]} to {reduced_gradients.shape[1]} dimensions")
+    else:
+        reduced_gradients = sample_gradients
+    
+    # Apply PaCMAP
+    print("Applying PaCMAP...")
+    pacmap_reducer = pacmap.PaCMAP(n_neighbors=n_neighbors, MN_ratio=MN_ratio, FP_ratio=FP_ratio, 
+                                   n_components=2, random_state=random_state)
+    pacmap_result = pacmap_reducer.fit_transform(reduced_gradients)
+    
+    # Create visualization with three subplots
+    fig, axes = plt.subplots(1, 3, figsize=figsize)
+    ax1, ax2, ax3 = axes
+    
+    # Plot 1: Colored by true/original labels
+    scatter1 = ax1.scatter(pacmap_result[:, 0], pacmap_result[:, 1], 
+                          c=visualization_labels, cmap='tab10', alpha=0.7, s=20)
+    ax1.set_title(f'PaCMAP: {label_name}\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax1.set_xlabel('PaCMAP 1')
+    ax1.set_ylabel('PaCMAP 2')
+    
+    # Add colorbar for true labels
+    cbar1 = plt.colorbar(scatter1, ax=ax1, ticks=colorbar_ticks)
+    cbar1.set_label(label_name)
+    
+    # Plot 2: Colored by cluster assignments
+    scatter2 = ax2.scatter(pacmap_result[:, 0], pacmap_result[:, 1], 
+                          c=sample_cluster_labels, cmap='tab10', alpha=0.7, s=20)
+    ax2.set_title(f'PaCMAP: Cluster Assignment\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax2.set_xlabel('PaCMAP 1')
+    ax2.set_ylabel('PaCMAP 2')
+    
+    # Add colorbar for cluster labels
+    cbar2 = plt.colorbar(scatter2, ax=ax2, ticks=range(n_clusters))
+    cbar2.set_label('Cluster ID')
+    
+    # Plot 3: Colored by model predictions
+    scatter3 = ax3.scatter(pacmap_result[:, 0], pacmap_result[:, 1], 
+                          c=model_predictions, cmap='tab10', alpha=0.7, s=20)
+    ax3.set_title(f'PaCMAP: Model Predictions\n{param_name} (Epoch {epoch})', fontsize=11)
+    ax3.set_xlabel('PaCMAP 1')
+    ax3.set_ylabel('PaCMAP 2')
+    
+    # Add colorbar for model predictions
+    if len(np.unique(model_predictions)) > 1:
+        unique_preds = np.unique(model_predictions)
+        pred_ticks = sorted(unique_preds)
+    else:
+        pred_ticks = colorbar_ticks  # Fall back to same as true labels
+    cbar3 = plt.colorbar(scatter3, ax=ax3, ticks=pred_ticks)
+    cbar3.set_label('Predicted Label')
+    
+    plt.tight_layout()
+    
+    # Save the plot
+    save_path = os.path.join(results_dir, f"pacmap_visualization_{param_name.replace('.', '_')}_epoch_{epoch}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"Saved PaCMAP visualization to: {save_path}")
+    
+    plt.show()
+    
+    # Print some statistics
+    print(f"\nPaCMAP Visualization Statistics:")
+    print(f"  Parameter: {param_name}")
+    print(f"  Epoch: {epoch}")
+    print(f"  Samples used: {len(sample_gradients)}")
+    print(f"  Number of clusters: {n_clusters}")
+    print(f"  PaCMAP n_neighbors: {n_neighbors}")
+    print(f"  PaCMAP MN_ratio: {MN_ratio}")
+    print(f"  PaCMAP FP_ratio: {FP_ratio}")
     
     # Calculate label-cluster correspondence
     if len(np.unique(true_labels)) > 1:  # Only if we have multiple true labels

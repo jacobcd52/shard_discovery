@@ -36,7 +36,7 @@ class Config:
     random_seed = 42
     
     # Gradient collection parameters
-    collect_gradients = False  # Temporarily disabled due to file writing issues
+    collect_gradients = True  # Re-enabled
     gradients_dir = 'results/gradients'  # Directory to save gradients
     save_gradients_every_epoch = False
     save_gradients_every_batch = True
