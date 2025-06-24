@@ -15,7 +15,8 @@ from torch.cuda.amp.grad_scaler import GradScaler
 from config import Config
 from model import MLP
 from utils import plot_training_curves, visualize_mnist_samples, visualize_predictions, create_results_dir
-from gradient_collector import PerSampleGradientCollector, compute_gradient_statistics
+from gradient_collector import PerSampleGradientCollector
+from efficient_gradient_collector import EfficientPerSampleGradientCollector
 
 def set_random_seed(seed):
     """Set random seed for reproducibility"""
@@ -222,7 +223,17 @@ def main():
     gradient_collector = None
     if config.collect_gradients:
         print("Initializing gradient collector...")
-        gradient_collector = PerSampleGradientCollector(model, config.gradients_dir)
+        if config.gradient_collector_type == 'efficient':
+            print("Using EfficientPerSampleGradientCollector")
+            gradient_collector = EfficientPerSampleGradientCollector(
+                model, 
+                config.gradients_dir,
+                max_samples_per_collection=config.max_gradient_samples
+            )
+        else:
+            print("Using original PerSampleGradientCollector")
+            gradient_collector = PerSampleGradientCollector(model, config.gradients_dir)
+        
         print(f"Gradient collection enabled. Gradients will be saved to {config.gradients_dir}")
     
     # Define loss function and optimizer

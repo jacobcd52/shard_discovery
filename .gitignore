@@ -2,3 +2,9 @@
 *.pt
 data/
 results/gradients/
+*.pyc
+__pycache__/
+results/
+steering_results/
+steering_results_*/
+*.tar.gz

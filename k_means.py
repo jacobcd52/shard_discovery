@@ -51,7 +51,7 @@ def kmeans_plusplus_gpu(X, n_clusters, random_state=None, n_local_trials=None, d
     indices[0] = center_id
     
     # Initialize list of closest distances and calculate current potential
-    closest_dist_sq = torch.cdist(centers[0:1], X, p=2).squeeze(0) ** 2
+    closest_dist_sq = torch.cdist(centers[0:1].to(device), X, p=2).squeeze(0) ** 2
     current_pot = torch.sum(closest_dist_sq)
     
     # Pick the remaining n_clusters-1 points
@@ -108,6 +108,9 @@ def kmeans_gradients_gpu(gradients_tensor, n_clusters=5, random_state=42, max_it
     """
     if device is None:
         device = gradients_tensor.device
+    
+    # Ensure the main tensor is on the correct device from the start
+    gradients_tensor = gradients_tensor.to(device)
     
     print(f"Performing GPU-accelerated k-means clustering on gradients tensor of shape {gradients_tensor.shape}")
     print(f"Number of clusters: {n_clusters}")
@@ -248,20 +251,33 @@ def kmeans_gradients_gpu(gradients_tensor, n_clusters=5, random_state=42, max_it
     cluster_stats = {}
     for cluster_id in range(n_clusters):
         cluster_mask = all_cluster_labels == cluster_id
-        cluster_distances = min_distances[cluster_mask]
+        cluster_indices = np.where(cluster_mask)[0]
         
+        # Calculate inertia for this cluster
+        cluster_inertia = np.sum(min_distances[cluster_mask] ** 2)
+        
+        # Calculate silhouette score for a sample of the cluster
+        if cluster_sizes.get(cluster_id, 0) > 1:
+            try:
+                sample_size = min(1000, cluster_sizes[cluster_id])
+                sample_indices = np.random.choice(cluster_indices, sample_size, replace=False)
+                dist_sample = distances_to_centers[sample_indices, :]
+                silhouette_val = silhouette_score(dist_sample, all_cluster_labels[sample_indices])
+            except ValueError:
+                silhouette_val = -1 # Score is undefined for single-cluster samples
+        else:
+            silhouette_val = -1  # Not defined for single-point clusters
+            
         cluster_stats[cluster_id] = {
-            'size': int(cluster_sizes[cluster_id]),
-            'percentage': float(cluster_sizes[cluster_id] / num_samples * 100),
-            'mean_distance': float(np.mean(cluster_distances)),
-            'std_distance': float(np.std(cluster_distances)),
-            'min_distance': float(np.min(cluster_distances)),
-            'max_distance': float(np.max(cluster_distances))
+            'size': cluster_sizes.get(cluster_id, 0),
+            'inertia': cluster_inertia,
+            'avg_silhouette': silhouette_val
         }
     
     # Prepare results
     results = {
-        'cluster_labels': all_cluster_labels,
+        'cluster_labels': best_cluster_labels,
+        'all_cluster_labels': all_cluster_labels,
         'cluster_centers': best_cluster_centers,
         'inertia': best_inertia,
         'clustering_time': clustering_time,
@@ -435,7 +451,8 @@ def kmeans_gradients_cpu(gradients_tensor, n_clusters=5, random_state=42, max_it
     
     # Prepare results
     results = {
-        'cluster_labels': all_cluster_labels,
+        'cluster_labels': subset_cluster_labels,
+        'all_cluster_labels': all_cluster_labels,
         'cluster_centers': cluster_centers,
         'inertia': inertia,
         'clustering_time': clustering_time,

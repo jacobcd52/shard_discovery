@@ -40,3 +40,10 @@ class Config:
     gradients_dir = 'results/gradients'  # Directory to save gradients
     save_gradients_every_epoch = False
     save_gradients_every_batch = True
+    gradient_collector_type = 'efficient'  # 'efficient' or 'original'
+    max_gradient_samples = 64  # For efficient collector
+    
+    # Fine-tuning / Steering Vector parameters
+    steering_vector_dir = "results/steering_vectors"
+    finetuning_steps = 10  # Number of backprop steps for fine-tuning
+    finetuning_learning_rate = 1e-4 # Use a smaller learning rate for fine-tuning
