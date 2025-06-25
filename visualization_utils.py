@@ -12,6 +12,7 @@ from sklearn.decomposition import PCA
 import umap.umap_ as umap
 import torch
 from typing import Dict, List, Optional, Any, Tuple
+from umap import UMAP
 
 
 def create_tsne_with_token_data(gradients: Dict[str, torch.Tensor], 
@@ -401,3 +402,4 @@ def print_token_gradient_summary(gradients: Dict[str, torch.Tensor],
     print(f"\n💡 Each gradient represents a specific token prediction task!")
     print(f"   Example: 'little' → 'girl' (predicting 'girl' after seeing 'little')")
     print(f"   This gives precise attribution compared to sequence-level gradients")
+
