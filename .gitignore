@@ -2,3 +2,4 @@
 *.pt
 data/
 results/gradients/
+tinystories_gradients/
