@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
-import sae_on_grad.config as config
+import config as config
 
 @torch.no_grad()
 def geometric_median(points: torch.Tensor, max_iter: int = 100, tol: float = 1e-5):
@@ -68,7 +68,9 @@ class SAETrainer:
         self.optimizer.zero_grad()
         
         x_hat, _ = self.model(batch)
-        loss = nn.functional.mse_loss(x_hat, batch)
+        mse = (x_hat - batch).pow(2).sum()
+        var = (batch - batch.mean()).pow(2).sum()
+        loss = mse / var
         
         loss.backward()
 

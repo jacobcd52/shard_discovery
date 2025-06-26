@@ -1,0 +1,15 @@
+Generating one batch to determine activation dimension...
+Activation dimension: 4096
+sae.pt: 100%|██████████████████████████████████████████████████████████████████████| 134M/134M [00:02<00:00, 54.1MB/s]
+Step 100, Loss: 15.6875
+Step 200, Loss: 2.5000
+Step 300, Loss: 1.9062
+Step 400, Loss: 2.3594
+Step 500, Loss: 1.9688
+Step 600, Loss: 1.1875
+Step 700, Loss: 1.3125
+Step 800, Loss: 1.0703
+Step 900, Loss: 0.9883
+Final model saved to sae_on_grad/checkpoints_roneneldan_TinyStories-1M_transformer.h.0.attn.attention.v_proj.weight/sae_final.pt
+sae.pt:  95%|██████████████████████████████████████████████████████████████████▋   | 128M/134M [00:02<00:00, 53.9MB/s]
+Model uploaded to https://huggingface.co/jacobcd52/roneneldan_TinyStories-1M_transformer.h.0.attn.attention.v_proj.weight_sae_k16

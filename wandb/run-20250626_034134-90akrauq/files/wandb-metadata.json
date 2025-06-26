@@ -1,0 +1,43 @@
+{
+  "os": "Linux-6.8.0-59-generic-x86_64-with-glibc2.35",
+  "python": "CPython 3.10.12",
+  "startedAt": "2025-06-26T03:41:35.211715Z",
+  "program": "/root/shard_discovery/sae_on_grad/train.py",
+  "codePath": "sae_on_grad/train.py",
+  "git": {
+    "remote": "https://github.com/jacobcd52/shard_discovery.git",
+    "commit": "2e44702a4eb0930cf42e18f9ed55c3f182125013"
+  },
+  "email": "jcdguitarguy@googlemail.com",
+  "root": "/root/shard_discovery",
+  "host": "d0ac368702b6",
+  "executable": "/bin/python3.10",
+  "codePathLocal": "sae_on_grad/train.py",
+  "cpu_count": 48,
+  "cpu_count_logical": 96,
+  "gpu": "NVIDIA A40",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "1073741824000",
+      "used": "13399699456"
+    }
+  },
+  "memory": {
+    "total": "540644212736"
+  },
+  "cpu": {
+    "count": 48,
+    "countLogical": 96
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA A40",
+      "memoryTotal": "48305799168",
+      "cudaCores": 10752,
+      "architecture": "Ampere",
+      "uuid": "GPU-382d7a6f-99c1-fa9c-d35c-b88fa4aa42fe"
+    }
+  ],
+  "cudaVersion": "12.7"
+}

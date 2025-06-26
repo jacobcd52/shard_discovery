@@ -1,0 +1,21 @@
+Gradients found, skipping generation.
+Loading gradients:  13%|██████▊                                              | 1280/10000 [00:25<03:25, 42.43it/s]Traceback (most recent call last):
+  File "/root/shard_discovery/sae_on_grad/train.py", line 81, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 34, in main
+    grad_dataset = GradientDataset(config.GRADIENT_SAVE_DIR)
+  File "/root/shard_discovery/sae_on_grad/utils.py", line 86, in __init__
+    self.data_tensors = [torch.load(f) for f in tqdm(self.files, desc="Loading gradients")]
+  File "/root/shard_discovery/sae_on_grad/utils.py", line 86, in <listcomp>
+    self.data_tensors = [torch.load(f) for f in tqdm(self.files, desc="Loading gradients")]
+  File "/usr/local/lib/python3.10/dist-packages/torch/serialization.py", line 1516, in load
+    return _load(
+  File "/usr/local/lib/python3.10/dist-packages/torch/serialization.py", line 2114, in _load
+    result = unpickler.load()
+  File "/usr/local/lib/python3.10/dist-packages/torch/_weights_only_unpickler.py", line 532, in load
+    self.append(self.persistent_load(pid))
+  File "/usr/local/lib/python3.10/dist-packages/torch/serialization.py", line 2078, in persistent_load
+    typed_storage = load_tensor(
+  File "/usr/local/lib/python3.10/dist-packages/torch/serialization.py", line 2031, in load_tensor
+    zip_file.get_storage_from_record(name, numel, torch.UntypedStorage)
+OSError: [Errno 12] Cannot allocate memory

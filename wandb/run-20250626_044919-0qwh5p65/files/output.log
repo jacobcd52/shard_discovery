@@ -1,0 +1,16 @@
+Gradients found, skipping generation.
+Loading gradients: 100%|████████████████████████████████████████████████████████████| 509/509 [00:09<00:00, 56.26it/s]
+--- Epoch 1/1 ---
+Step 0/489, Loss: 0.0000
+Step 100/489, Loss: 0.0000
+Step 200/489, Loss: 0.0000
+Step 300/489, Loss: 0.0000
+Step 400/489, Loss: 0.0000
+Traceback (most recent call last):
+  File "/root/shard_discovery/sae_on_grad/train.py", line 81, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 61, in main
+    metrics = trainer.train_step(batch)
+  File "/root/shard_discovery/sae_on_grad/trainer.py", line 89, in train_step
+    return {"loss": loss.item()}
+KeyboardInterrupt

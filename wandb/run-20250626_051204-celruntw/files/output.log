@@ -1,0 +1,223 @@
+Gradients found, skipping generation.
+Loading gradients: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 509/509 [00:08<00:00, 60.02it/s]
+--- Epoch 1/1 ---
+Step 0/489, Loss: 0.0000
+tensor(1.1562, device='cuda:0', dtype=torch.bfloat16)
+Step 1/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 2/489, Loss: 0.0000
+tensor(0.9922, device='cuda:0', dtype=torch.bfloat16)
+Step 3/489, Loss: 0.0000
+tensor(1.1094, device='cuda:0', dtype=torch.bfloat16)
+Step 4/489, Loss: 0.0000
+tensor(0.9922, device='cuda:0', dtype=torch.bfloat16)
+Step 5/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 6/489, Loss: 0.0000
+tensor(1.1562, device='cuda:0', dtype=torch.bfloat16)
+Step 7/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 8/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 9/489, Loss: 0.0000
+tensor(0.9805, device='cuda:0', dtype=torch.bfloat16)
+Step 10/489, Loss: 0.0000
+tensor(0.9688, device='cuda:0', dtype=torch.bfloat16)
+Step 11/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 12/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 13/489, Loss: 0.0000
+tensor(1.0547, device='cuda:0', dtype=torch.bfloat16)
+Step 14/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 15/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 16/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 17/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 18/489, Loss: 0.0000
+tensor(1.0234, device='cuda:0', dtype=torch.bfloat16)
+Step 19/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 20/489, Loss: 0.0000
+tensor(1.0234, device='cuda:0', dtype=torch.bfloat16)
+Step 21/489, Loss: 0.0000
+tensor(0.9414, device='cuda:0', dtype=torch.bfloat16)
+Step 22/489, Loss: 0.0000
+tensor(1.1797, device='cuda:0', dtype=torch.bfloat16)
+Step 23/489, Loss: 0.0000
+tensor(0.9961, device='cuda:0', dtype=torch.bfloat16)
+Step 24/489, Loss: 0.0000
+tensor(1.1016, device='cuda:0', dtype=torch.bfloat16)
+Step 25/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 26/489, Loss: 0.0000
+tensor(1.0469, device='cuda:0', dtype=torch.bfloat16)
+Step 27/489, Loss: 0.0000
+tensor(0.9922, device='cuda:0', dtype=torch.bfloat16)
+Step 28/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 29/489, Loss: 0.0000
+tensor(1.1406, device='cuda:0', dtype=torch.bfloat16)
+Step 30/489, Loss: 0.0000
+tensor(1.1094, device='cuda:0', dtype=torch.bfloat16)
+Step 31/489, Loss: 0.0000
+tensor(1.0078, device='cuda:0', dtype=torch.bfloat16)
+Step 32/489, Loss: 0.0000
+tensor(1.1016, device='cuda:0', dtype=torch.bfloat16)
+Step 33/489, Loss: 0.0000
+tensor(1.0938, device='cuda:0', dtype=torch.bfloat16)
+Step 34/489, Loss: 0.0000
+tensor(1.1641, device='cuda:0', dtype=torch.bfloat16)
+Step 35/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 36/489, Loss: 0.0000
+tensor(1.1172, device='cuda:0', dtype=torch.bfloat16)
+Step 37/489, Loss: 0.0000
+tensor(1.1016, device='cuda:0', dtype=torch.bfloat16)
+Step 38/489, Loss: 0.0000
+tensor(1.0234, device='cuda:0', dtype=torch.bfloat16)
+Step 39/489, Loss: 0.0000
+tensor(1.0938, device='cuda:0', dtype=torch.bfloat16)
+Step 40/489, Loss: 0.0000
+tensor(1.1250, device='cuda:0', dtype=torch.bfloat16)
+Step 41/489, Loss: 0.0000
+tensor(1.1953, device='cuda:0', dtype=torch.bfloat16)
+Step 42/489, Loss: 0.0000
+tensor(1.0625, device='cuda:0', dtype=torch.bfloat16)
+Step 43/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 44/489, Loss: 0.0000
+tensor(1.0078, device='cuda:0', dtype=torch.bfloat16)
+Step 45/489, Loss: 0.0000
+tensor(1.1094, device='cuda:0', dtype=torch.bfloat16)
+Step 46/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 47/489, Loss: 0.0000
+tensor(1.1016, device='cuda:0', dtype=torch.bfloat16)
+Step 48/489, Loss: 0.0000
+tensor(1.1328, device='cuda:0', dtype=torch.bfloat16)
+Step 49/489, Loss: 0.0000
+tensor(0.9648, device='cuda:0', dtype=torch.bfloat16)
+Step 50/489, Loss: 0.0000
+tensor(1.1094, device='cuda:0', dtype=torch.bfloat16)
+Step 51/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 52/489, Loss: 0.0000
+tensor(0.9961, device='cuda:0', dtype=torch.bfloat16)
+Step 53/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 54/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 55/489, Loss: 0.0000
+tensor(0.9844, device='cuda:0', dtype=torch.bfloat16)
+Step 56/489, Loss: 0.0000
+tensor(1.0078, device='cuda:0', dtype=torch.bfloat16)
+Step 57/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 58/489, Loss: 0.0000
+tensor(1.0156, device='cuda:0', dtype=torch.bfloat16)
+Step 59/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 60/489, Loss: 0.0000
+tensor(1.0859, device='cuda:0', dtype=torch.bfloat16)
+Step 61/489, Loss: 0.0000
+tensor(1.2891, device='cuda:0', dtype=torch.bfloat16)
+Step 62/489, Loss: 0.0000
+tensor(0.9648, device='cuda:0', dtype=torch.bfloat16)
+Step 63/489, Loss: 0.0000
+tensor(1.1328, device='cuda:0', dtype=torch.bfloat16)
+Step 64/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 65/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 66/489, Loss: 0.0000
+tensor(0.9961, device='cuda:0', dtype=torch.bfloat16)
+Step 67/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 68/489, Loss: 0.0000
+tensor(1.1250, device='cuda:0', dtype=torch.bfloat16)
+Step 69/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 70/489, Loss: 0.0000
+tensor(1.0625, device='cuda:0', dtype=torch.bfloat16)
+Step 71/489, Loss: 0.0000
+tensor(1.0859, device='cuda:0', dtype=torch.bfloat16)
+Step 72/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 73/489, Loss: 0.0000
+tensor(1.0469, device='cuda:0', dtype=torch.bfloat16)
+Step 74/489, Loss: 0.0000
+tensor(1.0078, device='cuda:0', dtype=torch.bfloat16)
+Step 75/489, Loss: 0.0000
+tensor(1.0938, device='cuda:0', dtype=torch.bfloat16)
+Step 76/489, Loss: 0.0000
+tensor(0.9844, device='cuda:0', dtype=torch.bfloat16)
+Step 77/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 78/489, Loss: 0.0000
+tensor(1.0469, device='cuda:0', dtype=torch.bfloat16)
+Step 79/489, Loss: 0.0000
+tensor(1.1641, device='cuda:0', dtype=torch.bfloat16)
+Step 80/489, Loss: 0.0000
+tensor(1.0859, device='cuda:0', dtype=torch.bfloat16)
+Step 81/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 82/489, Loss: 0.0000
+tensor(1.1172, device='cuda:0', dtype=torch.bfloat16)
+Step 83/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 84/489, Loss: 0.0000
+tensor(0.9648, device='cuda:0', dtype=torch.bfloat16)
+Step 85/489, Loss: 0.0000
+tensor(1.0156, device='cuda:0', dtype=torch.bfloat16)
+Step 86/489, Loss: 0.0000
+tensor(1.2266, device='cuda:0', dtype=torch.bfloat16)
+Step 87/489, Loss: 0.0000
+tensor(1.0938, device='cuda:0', dtype=torch.bfloat16)
+Step 88/489, Loss: 0.0000
+tensor(0.9922, device='cuda:0', dtype=torch.bfloat16)
+Step 89/489, Loss: 0.0000
+tensor(1.0234, device='cuda:0', dtype=torch.bfloat16)
+Step 90/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 91/489, Loss: 0.0000
+tensor(1.0391, device='cuda:0', dtype=torch.bfloat16)
+Step 92/489, Loss: 0.0000
+tensor(0.9414, device='cuda:0', dtype=torch.bfloat16)
+Step 93/489, Loss: 0.0000
+tensor(0.9961, device='cuda:0', dtype=torch.bfloat16)
+Step 94/489, Loss: 0.0000
+tensor(1.0703, device='cuda:0', dtype=torch.bfloat16)
+Step 95/489, Loss: 0.0000
+tensor(1., device='cuda:0', dtype=torch.bfloat16)
+Step 96/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 97/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 98/489, Loss: 0.0000
+tensor(1.0781, device='cuda:0', dtype=torch.bfloat16)
+Step 99/489, Loss: 0.0000
+tensor(1.1875, device='cuda:0', dtype=torch.bfloat16)
+Step 100/489, Loss: 0.0000
+tensor(1.1250, device='cuda:0', dtype=torch.bfloat16)
+Step 101/489, Loss: 0.0000
+tensor(1.0547, device='cuda:0', dtype=torch.bfloat16)
+Step 102/489, Loss: 0.0000
+tensor(1.0078, device='cuda:0', dtype=torch.bfloat16)
+Step 103/489, Loss: 0.0000
+tensor(1.0312, device='cuda:0', dtype=torch.bfloat16)
+Step 104/489, Loss: 0.0000
+tensor(1.1016, device='cuda:0', dtype=torch.bfloat16)
+Step 105/489, Loss: 0.0000
+tensor(1.2344, device='cuda:0', dtype=torch.bfloat16)
+Traceback (most recent call last):
+  File "/root/shard_discovery/sae_on_grad/train.py", line 82, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 61, in main
+    metrics = trainer.train_step(batch)
+  File "/root/shard_discovery/sae_on_grad/trainer.py", line 89, in train_step
+    return {"loss": loss.item()}
+KeyboardInterrupt

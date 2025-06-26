@@ -1,0 +1,8 @@
+Gradients found, skipping generation.
+Loading gradients: 100%|████████████████████████████████████████████████████████████| 509/509 [00:08<00:00, 57.67it/s]
+--- Epoch 1/1 ---
+torch.Size([4096, 4096])
+tensor(1.0859, dtype=torch.bfloat16)
+Final model saved to sae_on_grad/checkpoints_roneneldan_TinyStories-1M_transformer.h.0.attn.attention.v_proj.weight/sae_final.pt
+sae.pt: 100%|██████████████████████████████████████████████████████████████████████| 134M/134M [00:02<00:00, 45.9MB/s]
+Model uploaded to https://huggingface.co/jacobcd52/roneneldan_TinyStories-1M_transformer.h.0.attn.attention.v_proj.weight_sae_k16

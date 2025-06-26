@@ -1,0 +1,34 @@
+Gradients found, skipping generation.
+Loading gradients: 100%|███████████████████████████████████████████████████████| 100/100 [00:00<00:00, 241.35it/s]
+--- Epoch 1/1 ---
+Step 0/23, Loss: 0.0000
+Final model saved to sae_on_grad/checkpoints_roneneldan_TinyStories-1M_transformer.h.0.attn.attention.v_proj.weight/sae_final.pt
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/huggingface_hub/utils/_http.py", line 409, in hf_raise_for_status
+    response.raise_for_status()
+  File "/usr/local/lib/python3.10/dist-packages/requests/models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://huggingface.co/api/repos/create
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/root/shard_discovery/sae_on_grad/train.py", line 81, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 76, in main
+    upload_to_hf(sae, config.HF_REPO_ID)
+  File "/root/shard_discovery/sae_on_grad/utils.py", line 99, in upload_to_hf
+    create_repo(repo_id, exist_ok=True, repo_type="model")
+  File "/usr/local/lib/python3.10/dist-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/huggingface_hub/hf_api.py", line 3759, in create_repo
+    raise err
+  File "/usr/local/lib/python3.10/dist-packages/huggingface_hub/hf_api.py", line 3746, in create_repo
+    hf_raise_for_status(r)
+  File "/usr/local/lib/python3.10/dist-packages/huggingface_hub/utils/_http.py", line 473, in hf_raise_for_status
+    raise _format(HfHubHTTPError, message, response) from e
+huggingface_hub.errors.HfHubHTTPError: (Request ID: Root=1-685cc320-6c1c58c1010172d847319e70;884a3e8b-eebf-40a7-b592-8bca32b495cc)
+
+403 Forbidden: You don't have the rights to create a model under the namespace "TahaDouaji".
+Cannot access content at: https://huggingface.co/api/repos/create.
+Make sure your token has the correct permissions.

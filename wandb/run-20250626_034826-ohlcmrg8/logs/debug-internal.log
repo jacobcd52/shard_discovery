@@ -1,0 +1,15 @@
+{"time":"2025-06-26T03:48:27.053606093Z","level":"INFO","msg":"stream: starting","core version":"0.20.1","symlink path":"/root/shard_discovery/wandb/run-20250626_034826-ohlcmrg8/logs/debug-core.log"}
+{"time":"2025-06-26T03:48:27.31386032Z","level":"INFO","msg":"stream: created new stream","id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:27.313938711Z","level":"INFO","msg":"stream: started","id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:27.31396066Z","level":"INFO","msg":"writer: Do: started","stream_id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:27.313970023Z","level":"INFO","msg":"handler: started","stream_id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:27.313994762Z","level":"INFO","msg":"sender: started","stream_id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:27.439517572Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-06-26T03:48:49.639279214Z","level":"INFO","msg":"stream: closing","id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:49.639343188Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-06-26T03:48:49.639489256Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-06-26T03:48:49.931765403Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-06-26T03:48:50.076877098Z","level":"INFO","msg":"handler: closed","stream_id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:50.076983013Z","level":"INFO","msg":"writer: Close: closed","stream_id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:50.07701425Z","level":"INFO","msg":"sender: closed","stream_id":"ohlcmrg8"}
+{"time":"2025-06-26T03:48:50.077150164Z","level":"INFO","msg":"stream: closed","id":"ohlcmrg8"}

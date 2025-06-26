@@ -1,0 +1,35 @@
+Generating one batch to determine activation dimension...
+Activation dimension: 4096
+Training SAE:  16%|████████▌                                            | 3211872/20000000 [01:47<05:04, 55178.48it/s]Traceback (most recent call last):
+Step 100, Loss: 1.2422
+Step 200, Loss: 0.9805
+Step 300, Loss: 0.9727
+Step 400, Loss: 0.9844
+Step 500, Loss: 0.9766
+Step 600, Loss: 0.9805
+Step 700, Loss: 1.2266
+Step 800, Loss: 0.9844
+Step 900, Loss: 0.9805
+Step 1000, Loss: 1.3672
+Step 1100, Loss: 1.0078
+Step 1200, Loss: 0.9727
+Step 1300, Loss: 1.0078
+Step 1400, Loss: nan
+Step 1500, Loss: nan
+  File "/root/shard_discovery/sae_on_grad/train.py", line 114, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 66, in main
+    new_grads = generate_gradient_batch(model, tokenizer, text_batch)
+  File "/root/shard_discovery/sae_on_grad/utils.py", line 43, in generate_gradient_batch
+    inputs = tokenizer(text_batch, return_tensors="pt", padding=True, truncation=True, max_length=config.CONTEXT_LENGTH).to(config.DEVICE)
+  File "/usr/local/lib/python3.10/dist-packages/transformers/tokenization_utils_base.py", line 2867, in __call__
+    encodings = self._call_one(text=text, text_pair=text_pair, **all_kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/transformers/tokenization_utils_base.py", line 2955, in _call_one
+    return self.batch_encode_plus(
+  File "/usr/local/lib/python3.10/dist-packages/transformers/tokenization_utils_base.py", line 3156, in batch_encode_plus
+    return self._batch_encode_plus(
+  File "/usr/local/lib/python3.10/dist-packages/transformers/models/gpt2/tokenization_gpt2_fast.py", line 116, in _batch_encode_plus
+    return super()._batch_encode_plus(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/transformers/tokenization_utils_fast.py", line 541, in _batch_encode_plus
+    encodings = self._tokenizer.encode_batch(
+KeyboardInterrupt

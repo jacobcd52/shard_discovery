@@ -1,0 +1,27 @@
+Generating one batch to determine activation dimension...
+Activation dimension: 4096
+Training SAE:  20%|██████████▍                                          | 3938144/20000000 [02:14<05:41, 47033.11it/s]Traceback (most recent call last):
+Step 100, Loss: 1.0625
+Step 200, Loss: 0.9453
+Step 300, Loss: 0.9531
+Step 400, Loss: 0.9570
+Step 500, Loss: 0.9570
+Step 600, Loss: 0.9609
+Step 700, Loss: 1.1641
+Step 800, Loss: 0.9805
+Step 900, Loss: 0.9727
+Step 1000, Loss: 1.2266
+Step 1100, Loss: 1.0000
+Step 1200, Loss: 0.9609
+Step 1300, Loss: 1.0078
+Step 1400, Loss: nan
+Step 1500, Loss: nan
+Step 1600, Loss: nan
+Step 1700, Loss: nan
+Step 1800, Loss: nan
+Step 1900, Loss: nan
+  File "/root/shard_discovery/sae_on_grad/train.py", line 114, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 72, in main
+    buffer_tensor = torch.cat(gradient_buffer, dim=0)
+KeyboardInterrupt

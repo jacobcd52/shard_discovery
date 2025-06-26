@@ -1,0 +1,15 @@
+{"time":"2025-06-26T05:11:01.784191532Z","level":"INFO","msg":"stream: starting","core version":"0.20.1","symlink path":"/root/shard_discovery/wandb/run-20250626_051101-otr93akw/logs/debug-core.log"}
+{"time":"2025-06-26T05:11:02.019362264Z","level":"INFO","msg":"stream: created new stream","id":"otr93akw"}
+{"time":"2025-06-26T05:11:02.019488903Z","level":"INFO","msg":"stream: started","id":"otr93akw"}
+{"time":"2025-06-26T05:11:02.019577343Z","level":"INFO","msg":"writer: Do: started","stream_id":"otr93akw"}
+{"time":"2025-06-26T05:11:02.019599124Z","level":"INFO","msg":"handler: started","stream_id":"otr93akw"}
+{"time":"2025-06-26T05:11:02.019606201Z","level":"INFO","msg":"sender: started","stream_id":"otr93akw"}
+{"time":"2025-06-26T05:11:02.14383101Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-06-26T05:11:25.346482174Z","level":"INFO","msg":"stream: closing","id":"otr93akw"}
+{"time":"2025-06-26T05:11:25.346600319Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-06-26T05:11:25.346681249Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-06-26T05:11:25.631948746Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-06-26T05:11:25.785731217Z","level":"INFO","msg":"handler: closed","stream_id":"otr93akw"}
+{"time":"2025-06-26T05:11:25.785791269Z","level":"INFO","msg":"writer: Close: closed","stream_id":"otr93akw"}
+{"time":"2025-06-26T05:11:25.785811074Z","level":"INFO","msg":"sender: closed","stream_id":"otr93akw"}
+{"time":"2025-06-26T05:11:25.785915849Z","level":"INFO","msg":"stream: closed","id":"otr93akw"}

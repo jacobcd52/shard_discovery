@@ -1,0 +1,15 @@
+{"time":"2025-06-26T05:12:05.096056621Z","level":"INFO","msg":"stream: starting","core version":"0.20.1","symlink path":"/root/shard_discovery/wandb/run-20250626_051204-celruntw/logs/debug-core.log"}
+{"time":"2025-06-26T05:12:05.341677577Z","level":"INFO","msg":"stream: created new stream","id":"celruntw"}
+{"time":"2025-06-26T05:12:05.341762098Z","level":"INFO","msg":"stream: started","id":"celruntw"}
+{"time":"2025-06-26T05:12:05.341908302Z","level":"INFO","msg":"sender: started","stream_id":"celruntw"}
+{"time":"2025-06-26T05:12:05.341914857Z","level":"INFO","msg":"writer: Do: started","stream_id":"celruntw"}
+{"time":"2025-06-26T05:12:05.341983413Z","level":"INFO","msg":"handler: started","stream_id":"celruntw"}
+{"time":"2025-06-26T05:12:05.473728399Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-06-26T05:12:29.672421472Z","level":"INFO","msg":"stream: closing","id":"celruntw"}
+{"time":"2025-06-26T05:12:29.672545242Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-06-26T05:12:29.672679856Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-06-26T05:12:29.955596998Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-06-26T05:12:30.112418737Z","level":"INFO","msg":"handler: closed","stream_id":"celruntw"}
+{"time":"2025-06-26T05:12:30.112499009Z","level":"INFO","msg":"sender: closed","stream_id":"celruntw"}
+{"time":"2025-06-26T05:12:30.112486879Z","level":"INFO","msg":"writer: Close: closed","stream_id":"celruntw"}
+{"time":"2025-06-26T05:12:30.112739986Z","level":"INFO","msg":"stream: closed","id":"celruntw"}

@@ -1,0 +1,17 @@
+Gradient directory not found or empty, generating gradients...
+(…)-00000-of-00004-2d5a1467fff1081b.parquet: 100%|██████████████████████████████| 249M/249M [00:00<00:00, 537MB/s]
+(…)-00001-of-00004-5852b56a2bd28fd9.parquet: 100%|██████████████████████████████| 248M/248M [00:00<00:00, 581MB/s]
+(…)-00002-of-00004-a26307300439e943.parquet: 100%|██████████████████████████████| 246M/246M [00:00<00:00, 564MB/s]
+(…)-00003-of-00004-d243063613e5a057.parquet: 100%|██████████████████████████████| 248M/248M [00:00<00:00, 607MB/s]
+(…)-00000-of-00001-869c898b519ad725.parquet: 100%|████████████████████████████| 9.99M/9.99M [00:00<00:00, 495MB/s]
+Generating train split: 100%|████████████████████████████████| 2119719/2119719 [00:15<00:00, 139655.25 examples/s]
+Generating validation split: 100%|███████████████████████████████| 21990/21990 [00:00<00:00, 140616.27 examples/s]
+Generating Gradients:   0%|                                                               | 0/100 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "/root/shard_discovery/sae_on_grad/train.py", line 81, in <module>
+    main()
+  File "/root/shard_discovery/sae_on_grad/train.py", line 28, in main
+    generate_and_save_gradients(model, tokenizer, dataset, config.WEIGHT_NAME, config.GRADIENT_SAVE_DIR)
+  File "/root/shard_discovery/sae_on_grad/utils.py", line 58, in generate_and_save_gradients
+    loss.backward()
+AttributeError: 'NoneType' object has no attribute 'backward'
